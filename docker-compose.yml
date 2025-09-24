@@ -40,6 +40,21 @@ services:
       - hermes-network
     restart: unless-stopped
 
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: hermes-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@hermes.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
   # ETL-Analysis 服務 - 未來會加入
   # etl-analysis:
   #   build:
