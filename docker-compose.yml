@@ -26,13 +26,8 @@ services:
       context: ./hermes_worker
       dockerfile: Dockerfile
     container_name: hermes-worker
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-hermes}:${POSTGRES_PASSWORD:-hermes}@postgres:5432/${POSTGRES_DB:-hermes}
-      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
-      POLL_INTERVAL: ${POLL_INTERVAL:-60}
-      ENABLE_BACKFILL: ${ENABLE_BACKFILL:-false}
-      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
-      RETRY_BACKOFF_SECONDS: ${RETRY_BACKOFF_SECONDS:-5}
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
