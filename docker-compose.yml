@@ -35,6 +35,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./airflow}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./airflow}/plugins:/opt/airflow/plugins
+    - ./text_analysis:/opt/airflow/text_analysis:ro
   env_file:
     - .env
   user: "${AIRFLOW_UID:-50000}:0"
