@@ -1,0 +1,29 @@
+# Airflow Variable 設定說明：Discover New Words Prompt
+
+如果您希望透過 Airflow Web UI 動態修改 AI 分析的 Prompt，可以依照以下說明設定：
+
+### 1. 建立 Airflow Variable
+- **Key**: `DISCOVER_NEW_WORDS_PROMPT`
+- **Val**: (您的 Prompt 內容)
+
+### 2. 動態佔位符 (Placeholders)
+在 Prompt 內容中，您可以使用以下大括號語法，系統在執行時會自動填充對應的資料：
+
+- `{existing_replace_examples_str}`: 顯示目前資料庫中前 10 筆「替換詞彙」的範例（用於避免 AI 重複建議）。
+- `{replace_count}`: 目前資料庫中「替換詞彙」的總數量。
+- `{existing_special_examples_str}`: 顯示目前資料庫中前 15 筆「特殊詞彙」的範例。
+- `{special_count}`: 目前資料庫中「特殊詞彙」的總數量。
+- `{messages_text}`: 這次任務抓取到、要交給 AI 分析的留言文本內容。
+
+### 3. 注意事項
+- **Fallback 機制**: 如果您沒有建立此 Variable，或是 Key 名稱不符，程式會自動使用程式碼中預設的 Prompt。
+- **JSON 格式**: 雖然 Prompt 可以自由修改，但請務必要求 AI 回傳指定的 JSON 格式（包含 `replace_words` 與 `special_words` 陣列），否則後續過濾邏輯可能會出錯。
+
+---
+
+### 3. API Key 設定
+除了 Prompt，您也可以在 Airflow Web UI 設定 API Key：
+- **Key**: `GEMINI_API_KEY`
+- **Val**: (您的 Google Gemini API Key)
+
+**優先權說明**：程式會優先讀取 Airflow Variable 中的 `GEMINI_API_KEY`。如果沒有設定，則會自動 fallback 使用 `.env` 或系統環境變數中的現有設定。
