@@ -306,6 +306,33 @@ services:
   #     - hermes-network
   #   restart: unless-stopped
 
+  dashboard-backend:
+    build: ./dashboard/backend
+    container_name: hermes-dashboard-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hermes}:${POSTGRES_PASSWORD:-hermes}@postgres:5432/${POSTGRES_DB:-hermes}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
+  dashboard-frontend:
+    build: ./dashboard/frontend
+    container_name: hermes-dashboard-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./dashboard/frontend/src:/app/src  # Hot reload support
+    depends_on:
+      - dashboard-backend
+    networks:
+      - hermes-network
+    restart: unless-stopped
+
 networks:
   hermes-network:
     driver: bridge
