@@ -35,7 +35,13 @@ def health_check():
     return {"status": "ok"}
 
 @app.get("/api/stats/viewers")
-def get_viewer_stats(limit: int = 100, hours: int = None, db: Session = Depends(get_db)):
+def get_viewer_stats(
+    limit: int = 100, 
+    hours: int = None, 
+    start_time: datetime = None, 
+    end_time: datetime = None, 
+    db: Session = Depends(get_db)
+):
     """
     Get recent concurrent viewer stats.
     Returns list of {time: str, count: int}
@@ -43,7 +49,9 @@ def get_viewer_stats(limit: int = 100, hours: int = None, db: Session = Depends(
     try:
         query = db.query(StreamStats).order_by(StreamStats.collected_at.desc())
         
-        if hours:
+        if start_time and end_time:
+            query = query.filter(StreamStats.collected_at >= start_time, StreamStats.collected_at <= end_time)
+        elif hours:
             since = datetime.utcnow() - timedelta(hours=hours)
             query = query.filter(StreamStats.collected_at >= since)
         else:
@@ -65,25 +73,44 @@ def get_viewer_stats(limit: int = 100, hours: int = None, db: Session = Depends(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats/comments")
-def get_comment_stats_hourly(hours: int = 24, db: Session = Depends(get_db)):
+def get_comment_stats_hourly(
+    hours: int = 24, 
+    start_time: datetime = None, 
+    end_time: datetime = None, 
+    db: Session = Depends(get_db)
+):
     """
-    Get comment counts per hour for the last N hours.
+    Get comment counts per hour.
     Returns list of {hour: str, count: int}
     """
     try:
-        since = datetime.utcnow() - timedelta(hours=hours)
+        if start_time and end_time:
+            since = start_time
+            # For consistent filtering in the query below, we might need to handle end_time 
+            # query logic is >= since. If using range, we need separate logic or adjust variable names.
+            # Let's adjust the filtering logic below directly.
+            pass 
+        else:
+            since = datetime.utcnow() - timedelta(hours=hours)
+            start_time = since # use start_time as common variable for query filter start
+            end_time = None # Open ended unless specified
         
         # Determine the database type to use appropriate date truncation function
         # Since we know it's Postgres from requirements and docker-compose
         trunc_func = func.date_trunc('hour', ChatMessage.published_at)
         
         # Query
-        results = db.query(
+        query = db.query(
             trunc_func.label('hour'),
             func.count(ChatMessage.message_id).label('count')
         ).filter(
-            ChatMessage.published_at >= since
-        ).group_by(
+            ChatMessage.published_at >= start_time
+        )
+        
+        if end_time:
+             query = query.filter(ChatMessage.published_at <= end_time)
+             
+        results = query.group_by(
             trunc_func
         ).order_by(
             trunc_func

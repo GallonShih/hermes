@@ -34,85 +34,117 @@ function App() {
     const [commentData, setCommentData] = useState([]);
     const [barFlash, setBarFlash] = useState(false);
 
-    // Common Time Range (12 hours)
-    // We calculate this on the frontend to sync the charts
-    const now = new Date();
-    const minTime = new Date(now.getTime() - 12 * 60 * 60 * 1000).getTime();
-    const maxTime = now.getTime();
+    // Filter States
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [toggleRefresh, setToggleRefresh] = useState(true);
 
-    // Fetch Viewer Stats
-    const fetchViewers = async () => {
+    // Dynamic Time Axis State
+    const [timeAxisConfig, setTimeAxisConfig] = useState({
+        type: 'time',
+        time: {
+            unit: 'hour',
+            displayFormats: { hour: 'MM/dd HH:mm' }
+        },
+        min: new Date(new Date().getTime() - 12 * 60 * 60 * 1000).getTime(), // Initial rolling 12h
+        max: new Date().getTime(),
+    });
+
+    const fetchViewers = async (start, end) => {
         try {
-            // Fetch 12 hours of data to match comments
-            const res = await fetch(`${API_BASE_URL}/api/stats/viewers?hours=12`);
+            let url = `${API_BASE_URL}/api/stats/viewers?hours=12`;
+            if (start && end) {
+                url = `${API_BASE_URL}/api/stats/viewers?start_time=${start}&end_time=${end}`;
+            }
+            const res = await fetch(url);
             const data = await res.json();
-            // data format: [{time: "ISO_STRING", count: 123}, ...]
-
-            // Map to x, y for Chart.js
             const validData = data.map(d => ({
-                x: new Date(d.time).getTime(),
+                // API returns UTC ISO string without Z
+                x: new Date(d.time.endsWith('Z') ? d.time : d.time + 'Z').getTime(),
                 y: d.count
             }));
-
             setViewData(validData);
         } catch (err) {
             console.error("Failed to fetch viewers", err);
         }
     };
 
-    // Fetch Comment Stats
-    const fetchComments = async () => {
+    const fetchComments = async (start, end) => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/stats/comments?hours=12`);
+            let url = `${API_BASE_URL}/api/stats/comments?hours=12`;
+            if (start && end) {
+                url = `${API_BASE_URL}/api/stats/comments?start_time=${start}&end_time=${end}`;
+            }
+            const res = await fetch(url);
             const data = await res.json();
-            // data format: [{hour: "ISO_STRING", count: 123}, ...]
-
-            // Map to x, y for Chart.js
             const validData = data.map(d => ({
-                x: new Date(d.hour).getTime(),
+                // API returns UTC ISO string without Z
+                x: new Date(d.hour.endsWith('Z') ? d.hour : d.hour + 'Z').getTime(),
                 y: d.count
             }));
-
             setCommentData(validData);
 
-            // Flash effect logic
+            // Flash effect can remain
             setBarFlash(true);
             setTimeout(() => setBarFlash(false), 400);
-
         } catch (err) {
             console.error("Failed to fetch comments", err);
         }
     };
 
-    // Polling Effect
-    useEffect(() => {
-        // Initial fetch
-        fetchViewers();
-        fetchComments();
+    const handleFilter = () => {
+        if (!startDate || !endDate) {
+            alert('Please select both start and end time');
+            return;
+        }
 
+        const startIso = new Date(startDate).toISOString();
+        const endObj = new Date(endDate);
+        endObj.setMinutes(59, 59, 999);
+        const endIso = endObj.toISOString();
+
+        const startTs = new Date(startDate).getTime();
+        const endTs = endObj.getTime();
+
+        setTimeAxisConfig(prev => ({
+            ...prev,
+            min: startTs,
+            max: endTs,
+        }));
+
+        setToggleRefresh(false);
+        fetchViewers(startIso, endIso);
+        fetchComments(startIso, endIso);
+    };
+
+    useEffect(() => {
+        // Initial / Polling
         const intervalId = setInterval(() => {
+            if (toggleRefresh) {
+                fetchViewers();
+                fetchComments();
+
+                // Update rolling window
+                const now = new Date();
+                const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+                setTimeAxisConfig(prev => ({
+                    ...prev,
+                    min: twelveHoursAgo.getTime(),
+                    max: now.getTime(),
+                }));
+            }
+        }, 5000);
+
+        // Ensure initial run
+        if (toggleRefresh) {
             fetchViewers();
             fetchComments();
-        }, 5000); // Poll every 5 seconds
+        }
 
         return () => clearInterval(intervalId);
-    }, []);
+    }, [toggleRefresh]);
 
-    // Common Axis Config
-    const timeAxisConfig = {
-        type: 'time',
-        time: {
-            unit: 'hour',
-            displayFormats: {
-                hour: 'MM/dd HH:mm'
-            }
-        },
-        min: minTime,
-        max: maxTime,
-        grid: {
-            display: true,
-        },
-    };
+
 
     // Dual Axis Chart Config
     const chartData = {
@@ -190,18 +222,26 @@ function App() {
                             const hourTime = date.getTime();
 
                             const comment = commentData.find(d => d.x === hourTime);
-                            return comment ? `Hourly Comments: ${comment.y}` : 'Hourly Comments: 0';
+                            return `Hourly Comments: ${comment ? comment.y : 'NA'}`;
                         }
 
                         // If hovering Comments (Bar), show Viewers at that time
                         if (item.dataset.type === 'bar') {
-                            if (!viewData.length) return '';
+                            if (!viewData.length) return 'Viewers: NA';
                             // Find closest viewer data point
                             const closestViewer = viewData.reduce((prev, curr) => {
                                 return (Math.abs(curr.x - timestamp) < Math.abs(prev.x - timestamp) ? curr : prev);
                             });
 
-                            return closestViewer ? `Viewers: ${closestViewer.y}` : '';
+                            // Check if closest viewer is within threshold (e.g., 10 minutes)
+                            const diff = Math.abs(closestViewer.x - timestamp);
+                            const THRESHOLD = 10 * 60 * 1000;
+
+                            if (diff > THRESHOLD) {
+                                return 'Viewers: NA';
+                            }
+
+                            return closestViewer ? `Viewers: ${closestViewer.y}` : 'Viewers: NA';
                         }
                         return '';
                     }
@@ -232,15 +272,62 @@ function App() {
     return (
         <div className="min-h-screen bg-gray-100 p-8">
             <div className="max-w-7xl mx-auto space-y-8">
-                <header className="mb-8">
+                <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <h1 className="text-3xl font-bold text-gray-800">Hermes 監控儀表板</h1>
+
+                    <div className="flex items-center gap-2 bg-white p-3 rounded shadow">
+                        <label className="text-sm font-semibold text-gray-600">Range:</label>
+                        <input
+                            type="datetime-local"
+                            step="3600"
+                            className="border rounded p-1 text-sm cursor-pointer"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                        />
+                        <span className="text-gray-400">to</span>
+                        <input
+                            type="datetime-local"
+                            step="3600"
+                            className="border rounded p-1 text-sm cursor-pointer"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                        />
+                        <button
+                            onClick={handleFilter}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded text-sm font-medium transition-colors"
+                        >
+                            Filter
+                        </button>
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={() => {
+                                    setStartDate('');
+                                    setEndDate('');
+                                    setToggleRefresh(true);
+                                    // Reset window immediately
+                                    const now = new Date();
+                                    const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+                                    setTimeAxisConfig({
+                                        type: 'time',
+                                        time: { unit: 'hour', displayFormats: { hour: 'MM/dd HH:mm' } },
+                                        min: twelveHoursAgo.getTime(),
+                                        max: now.getTime(),
+                                    });
+                                }}
+                                className="text-red-500 hover:text-red-700 text-sm underline ml-2"
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
                 </header>
+
 
                 <div className="bg-white p-6 rounded-lg shadow-md h-[80vh]">
                     <Chart type='bar' options={chartOptions} data={chartData} />
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
