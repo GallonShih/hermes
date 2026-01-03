@@ -35,9 +35,10 @@ const MessageRow = ({ message }) => {
         });
 
         // Split message by emoji patterns (looking for :emoji_name: format)
+        // Updated regex to support Unicode characters (e.g., :_gtvemoji風77:)
         const parts = [];
         let lastIndex = 0;
-        const regex = /:[a-zA-Z0-9_-]+:/g;
+        const regex = /:[^:]+:/g;  // Match any characters except colons between two colons
         let match;
 
         while ((match = regex.exec(messageText)) !== null) {
