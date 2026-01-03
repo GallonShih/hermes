@@ -200,6 +200,52 @@ function App() {
         ],
     };
 
+    // Custom Plugin to draw Grid Lines strictly at Top of Hour
+    const hourGridPlugin = {
+        id: 'hourGrid',
+        beforeDraw: (chart) => {
+            const ctx = chart.ctx;
+            const xAxis = chart.scales.x;
+            const yAxis = chart.scales.y1; // Use y1 height reference
+
+            // Save context
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#e0e0e0'; // Grid color
+
+            const minTime = xAxis.min;
+            const maxTime = xAxis.max;
+
+            // Find first top of hour after minTime
+            let currentTime = new Date(minTime);
+            if (currentTime.getMinutes() !== 0 || currentTime.getSeconds() !== 0 || currentTime.getMilliseconds() !== 0) {
+                // Move to next hour
+                currentTime.setHours(currentTime.getHours() + 1, 0, 0, 0);
+            }
+
+            while (currentTime.getTime() <= maxTime) {
+                const x = xAxis.getPixelForValue(currentTime.getTime());
+
+                // Draw vertical line if within chart area
+                if (x >= xAxis.left && x <= xAxis.right) {
+                    ctx.moveTo(x, xAxis.top);
+                    ctx.lineTo(x, xAxis.bottom);
+                }
+
+                // Increment 1 hour
+                currentTime.setTime(currentTime.getTime() + 60 * 60 * 1000);
+            }
+
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+
+    // Register the plugin only for this chart or use in options
+    // ChartJS 3/4 way is to pass in plugins array or register globally.
+    // We will include it in the <Chart /> component usage below.
+
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -254,7 +300,10 @@ function App() {
             },
         },
         scales: {
-            x: timeAxisConfig,
+            x: {
+                ...timeAxisConfig,
+                grid: { display: false }, // Disable default grid, use plugin
+            },
             y1: {
                 type: 'linear',
                 display: true,
@@ -329,7 +378,7 @@ function App() {
 
 
                 <div className="bg-white p-6 rounded-lg shadow-md h-[80vh]">
-                    <Chart type='bar' options={chartOptions} data={chartData} />
+                    <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin]} />
                 </div>
             </div >
         </div >
