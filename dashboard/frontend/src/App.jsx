@@ -249,6 +249,62 @@ function App() {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        onHover: (event, activeElements, chart) => {
+            if (activeElements.length === 0) {
+                chart.setActiveElements([]); // Clear active elements when not hovering
+                chart.update('none');
+                return;
+            }
+
+            const activePoint = activeElements[0];
+            const datasetIndex = activePoint.datasetIndex;
+            const index = activePoint.index;
+
+            // Get data X value
+            // Note: chart.data.datasets[datasetIndex].data[index].x is reliable for our struct
+            const rawX = chart.data.datasets[datasetIndex].data[index].x;
+
+            const newActiveNodes = [{ datasetIndex, index }];
+
+            // If hovering Line (0) -> Find Bar (1)
+            if (datasetIndex === 0) {
+                // Find Bar at rawX (floored to hour + 30m)
+                const d = new Date(rawX);
+                d.setMinutes(0, 0, 0);
+                const targetX = d.getTime() + 30 * 60 * 1000;
+
+                // Find index in dataset 1
+                const barIndex = chart.data.datasets[1].data.findIndex(d => d.x === targetX);
+                if (barIndex !== -1) {
+                    newActiveNodes.push({ datasetIndex: 1, index: barIndex });
+                }
+            }
+            // If hovering Bar (1) -> Find Line (0)
+            else if (datasetIndex === 1) {
+                const viewers = chart.data.datasets[0].data;
+                if (viewers.length > 0) {
+                    // Simple linear search or reduce
+                    let closestIdx = -1;
+                    let minDiff = Infinity;
+
+                    viewers.forEach((v, idx) => {
+                        const diff = Math.abs(v.x - rawX);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestIdx = idx;
+                        }
+                    });
+
+                    if (closestIdx !== -1) {
+                        newActiveNodes.push({ datasetIndex: 0, index: closestIdx });
+                    }
+                }
+            }
+
+            // Set active elements manually to trigger highlights
+            chart.setActiveElements(newActiveNodes);
+            chart.update('none'); // Update styles without animation
+        },
         interaction: {
             mode: 'nearest',
             axis: 'x',
@@ -258,46 +314,92 @@ function App() {
             legend: { position: 'top' },
             title: { display: true, text: 'Real-time Analytics (12H)' },
             tooltip: {
-                callbacks: {
-                    footer: (tooltipItems) => {
-                        const item = tooltipItems[0];
-                        if (!item || !item.raw) return '';
+                enabled: false, // Disable default canvas tooltip
+                external: (context) => {
+                    const { chart, tooltip } = context;
+                    let tooltipEl = document.getElementById('chartjs-tooltip');
 
+                    // Create element on first render
+                    if (!tooltipEl) {
+                        tooltipEl = document.createElement('div');
+                        tooltipEl.id = 'chartjs-tooltip';
+                        tooltipEl.style.background = 'rgba(0, 0, 0, 0.8)';
+                        tooltipEl.style.borderRadius = '3px';
+                        tooltipEl.style.color = 'white';
+                        tooltipEl.style.opacity = 1;
+                        tooltipEl.style.pointerEvents = 'none';
+                        tooltipEl.style.position = 'absolute';
+                        tooltipEl.style.transform = 'translate(-50%, 0)';
+                        tooltipEl.style.transition = 'all .1s ease';
+                        tooltipEl.style.padding = '8px 12px';
+                        tooltipEl.style.fontFamily = 'Helvetica Neue, Helvetica, Arial, sans-serif';
+                        tooltipEl.style.fontSize = '12px';
+                        tooltipEl.style.zIndex = '100'; // Ensure on top
+                        document.body.appendChild(tooltipEl);
+                    }
+
+                    // Hide if no tooltip
+                    if (tooltip.opacity === 0) {
+                        tooltipEl.style.opacity = 0;
+                        return;
+                    }
+
+                    // Set View/Logic
+                    if (tooltip.body) {
+                        const item = tooltip.dataPoints[0];
                         const timestamp = item.raw.x;
+                        const dateObj = new Date(timestamp);
 
-                        // If hovering Viewers (Line), show Comments for that hour
-                        if (item.dataset.type === 'line') {
-                            // Floor to hour to find matching comment bar
-                            const date = new Date(timestamp);
-                            date.setMinutes(0, 0, 0); // Comments are stored at top of hour
+                        // Formatting Time
+                        const pad = n => n.toString().padStart(2, '0');
+                        const timeStr = `${pad(dateObj.getMonth() + 1)}/${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
 
-                            // Data is shifted by +30 mins for centering, so we must match that
-                            const hourTime = date.getTime() + 30 * 60 * 1000;
-                            const comment = commentData.find(d => d.x === hourTime);
+                        // --- Logic for finding both values ---
 
-                            return `Comments: ${comment ? comment.y : 'NA'}`;
-                        }
+                        // 1. Comments
+                        // Floor to hour, then + 30 mins
+                        const cDate = new Date(timestamp);
+                        cDate.setMinutes(0, 0, 0);
+                        const cKey = cDate.getTime() + 30 * 60 * 1000;
+                        const cData = commentData.find(d => d.x === cKey);
+                        const cVal = cData ? cData.y : 'NA';
 
-                        // If hovering Comments (Bar), show Viewers at that time
-                        if (item.dataset.type === 'bar') {
-                            if (!viewData.length) return 'Viewers: NA';
-
+                        // 2. Viewers
+                        let vVal = 'NA';
+                        if (viewData.length > 0) {
                             const closestViewer = viewData.reduce((prev, curr) => {
                                 return (Math.abs(curr.x - timestamp) < Math.abs(prev.x - timestamp) ? curr : prev);
                             });
-
                             // Strict 5 minute threshold
                             const diff = Math.abs(closestViewer.x - timestamp);
-                            const THRESHOLD = 5 * 60 * 1000;
-
-                            if (diff > THRESHOLD) {
-                                return 'Viewers: NA';
+                            if (diff <= 5 * 60 * 1000) {
+                                vVal = closestViewer.y;
                             }
-
-                            return closestViewer ? `Viewers: ${closestViewer.y}` : 'Viewers: NA';
                         }
-                        return '';
+
+                        // HTML Generation
+                        // Viewers Row (Line Color: #5470C6)
+                        const vRow = `
+                            <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                                <span style="display:inline-block; width:10px; height:10px; background-color:#5470C6; margin-right:6px;"></span>
+                                <span>Viewers: ${vVal}</span>
+                            </div>`;
+
+                        // Comments Row (Bar Color: #91cc75 or #ff4d4f)
+                        const cRow = `
+                            <div style="display: flex; align-items: center;">
+                                <span style="display:inline-block; width:10px; height:10px; background-color:#91cc75; margin-right:6px;"></span>
+                                <span>Comments: ${cVal}</span>
+                            </div>`;
+
+                        tooltipEl.innerHTML = `<div style="font-weight:bold; margin-bottom:6px;">${timeStr}</div>${vRow}${cRow}`;
                     }
+
+                    // Positioning
+                    const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
+                    tooltipEl.style.opacity = 1;
+                    tooltipEl.style.left = positionX + tooltip.caretX + 'px';
+                    tooltipEl.style.top = positionY + tooltip.caretY + 'px';
                 }
             },
         },
