@@ -117,7 +117,21 @@ const MessageList = ({ startTime, endTime }) => {
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalMessages, setTotalMessages] = useState(0);
+    const [pageInput, setPageInput] = useState('');
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [refreshInterval, setRefreshInterval] = useState(10);
     const limit = 20;
+
+    // Auto-refresh effect
+    useEffect(() => {
+        if (!autoRefresh) return;
+
+        const intervalId = setInterval(() => {
+            fetchMessages();
+        }, refreshInterval * 1000);
+
+        return () => clearInterval(intervalId);
+    }, [autoRefresh, refreshInterval, startTime, endTime, currentPage]);
 
     useEffect(() => {
         setCurrentPage(1); // Reset to first page when time range changes
@@ -195,6 +209,34 @@ const MessageList = ({ startTime, endTime }) => {
                 )}
             </div>
 
+            {/* Auto-Refresh Controls */}
+            <div className="flex items-center gap-4 mt-4 p-3 bg-gray-50 rounded">
+                <label className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        checked={autoRefresh}
+                        onChange={(e) => setAutoRefresh(e.target.checked)}
+                        className="w-4 h-4"
+                    />
+                    <span className="text-sm font-medium">自動刷新</span>
+                </label>
+
+                {autoRefresh && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">每</span>
+                        <input
+                            type="number"
+                            min="5"
+                            max="300"
+                            value={refreshInterval}
+                            onChange={(e) => setRefreshInterval(parseInt(e.target.value) || 10)}
+                            className="w-16 px-2 py-1 border rounded text-center text-sm"
+                        />
+                        <span className="text-sm">秒</span>
+                    </div>
+                )}
+            </div>
+
             {/* Pagination Controls */}
             {totalMessages > 0 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
@@ -205,9 +247,33 @@ const MessageList = ({ startTime, endTime }) => {
                     >
                         上一頁
                     </button>
-                    <span className="text-sm text-gray-600">
-                        第 {currentPage} / {totalPages} 頁 (共 {totalMessages} 則訊息)
-                    </span>
+
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const pageNum = parseInt(pageInput);
+                            if (pageNum >= 1 && pageNum <= totalPages) {
+                                setCurrentPage(pageNum);
+                                setPageInput('');
+                            } else {
+                                alert(`請輸入 1 到 ${totalPages} 之間的頁數`);
+                            }
+                        }}
+                        className="flex items-center gap-2"
+                    >
+                        <span className="text-sm text-gray-600">第</span>
+                        <input
+                            type="number"
+                            min="1"
+                            max={totalPages}
+                            value={pageInput}
+                            onChange={(e) => setPageInput(e.target.value)}
+                            placeholder={currentPage.toString()}
+                            className="w-16 px-2 py-1 border rounded text-center text-sm"
+                        />
+                        <span className="text-sm text-gray-600">/ {totalPages} 頁 (共 {totalMessages} 則訊息)</span>
+                    </form>
+
                     <button
                         onClick={() => setCurrentPage(p => p + 1)}
                         disabled={currentPage >= totalPages}
