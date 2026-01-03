@@ -454,7 +454,14 @@ function App() {
                 </div>
 
                 {/* Message List */}
-                <MessageList />
+                <MessageList
+                    startTime={startDate ? new Date(startDate).toISOString() : null}
+                    endTime={endDate ? (() => {
+                        const d = new Date(endDate);
+                        d.setMinutes(59, 59, 999);
+                        return d.toISOString();
+                    })() : null}
+                />
             </div >
         </div >
     );

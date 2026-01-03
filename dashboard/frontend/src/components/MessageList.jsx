@@ -101,7 +101,7 @@ const MessageRow = ({ message }) => {
     };
 
     return (
-        <div className="grid grid-cols-[auto_1fr_3fr] gap-4 text-sm border-b border-gray-200 py-2 hover:bg-gray-50">
+        <div className="grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)] gap-4 text-sm border-b border-gray-200 py-2 hover:bg-gray-50">
             <span className="text-gray-500 whitespace-nowrap">{formatTime(message.time)}</span>
             <span className="font-semibold text-gray-700 truncate">{message.author || 'Unknown'}</span>
             <span className="text-gray-900 break-words">
@@ -111,24 +111,41 @@ const MessageRow = ({ message }) => {
     );
 };
 
-const MessageList = () => {
+const MessageList = ({ startTime, endTime }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalMessages, setTotalMessages] = useState(0);
+    const limit = 20;
+
+    useEffect(() => {
+        setCurrentPage(1); // Reset to first page when time range changes
+    }, [startTime, endTime]);
 
     useEffect(() => {
         fetchMessages();
-    }, []);
+    }, [startTime, endTime, currentPage]);
 
     const fetchMessages = async () => {
         try {
             setLoading(true);
-            const response = await fetch('http://localhost:8000/api/chat/messages?limit=100');
+            const offset = (currentPage - 1) * limit;
+            const params = new URLSearchParams({
+                limit: limit.toString(),
+                offset: offset.toString()
+            });
+
+            if (startTime) params.append('start_time', startTime);
+            if (endTime) params.append('end_time', endTime);
+
+            const response = await fetch(`http://localhost:8000/api/chat/messages?${params}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
             setMessages(data.messages || []);
+            setTotalMessages(data.total || 0);
             setError(null);
         } catch (err) {
             console.error('Error fetching messages:', err);
@@ -137,6 +154,8 @@ const MessageList = () => {
             setLoading(false);
         }
     };
+
+    const totalPages = Math.ceil(totalMessages / limit);
 
     if (loading) {
         return (
@@ -163,7 +182,7 @@ const MessageList = () => {
     return (
         <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4 text-gray-800">訊息列表</h2>
-            <div className="mb-2 grid grid-cols-[auto_1fr_3fr] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
+            <div className="mb-2 grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
                 <span>時間</span>
                 <span>作者</span>
                 <span>訊息</span>
@@ -175,8 +194,32 @@ const MessageList = () => {
                     messages.map((msg) => <MessageRow key={msg.id} message={msg} />)
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalMessages > 0 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                    <button
+                        onClick={() => setCurrentPage(p => p - 1)}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        上一頁
+                    </button>
+                    <span className="text-sm text-gray-600">
+                        第 {currentPage} / {totalPages} 頁 (共 {totalMessages} 則訊息)
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={currentPage >= totalPages}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        下一頁
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
 
 export default MessageList;
+
