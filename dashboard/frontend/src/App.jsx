@@ -249,62 +249,7 @@ function App() {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        onHover: (event, activeElements, chart) => {
-            if (activeElements.length === 0) {
-                chart.setActiveElements([]); // Clear active elements when not hovering
-                chart.update('none');
-                return;
-            }
 
-            const activePoint = activeElements[0];
-            const datasetIndex = activePoint.datasetIndex;
-            const index = activePoint.index;
-
-            // Get data X value
-            // Note: chart.data.datasets[datasetIndex].data[index].x is reliable for our struct
-            const rawX = chart.data.datasets[datasetIndex].data[index].x;
-
-            const newActiveNodes = [{ datasetIndex, index }];
-
-            // If hovering Line (0) -> Find Bar (1)
-            if (datasetIndex === 0) {
-                // Find Bar at rawX (floored to hour + 30m)
-                const d = new Date(rawX);
-                d.setMinutes(0, 0, 0);
-                const targetX = d.getTime() + 30 * 60 * 1000;
-
-                // Find index in dataset 1
-                const barIndex = chart.data.datasets[1].data.findIndex(d => d.x === targetX);
-                if (barIndex !== -1) {
-                    newActiveNodes.push({ datasetIndex: 1, index: barIndex });
-                }
-            }
-            // If hovering Bar (1) -> Find Line (0)
-            else if (datasetIndex === 1) {
-                const viewers = chart.data.datasets[0].data;
-                if (viewers.length > 0) {
-                    // Simple linear search or reduce
-                    let closestIdx = -1;
-                    let minDiff = Infinity;
-
-                    viewers.forEach((v, idx) => {
-                        const diff = Math.abs(v.x - rawX);
-                        if (diff < minDiff) {
-                            minDiff = diff;
-                            closestIdx = idx;
-                        }
-                    });
-
-                    if (closestIdx !== -1) {
-                        newActiveNodes.push({ datasetIndex: 0, index: closestIdx });
-                    }
-                }
-            }
-
-            // Set active elements manually to trigger highlights
-            chart.setActiveElements(newActiveNodes);
-            chart.update('none'); // Update styles without animation
-        },
         interaction: {
             mode: 'nearest',
             axis: 'x',
@@ -386,10 +331,12 @@ function App() {
                             </div>`;
 
                         // Comments Row (Bar Color: #91cc75 or #ff4d4f)
+                        const cHour = cDate.getHours();
+                        const cRange = `${pad(cHour)}:00 - ${pad(cHour)}:59`;
                         const cRow = `
                             <div style="display: flex; align-items: center;">
                                 <span style="display:inline-block; width:10px; height:10px; background-color:#91cc75; margin-right:6px;"></span>
-                                <span>Comments: ${cVal}</span>
+                                <span>Comments (${cRange}): ${cVal}</span>
                             </div>`;
 
                         tooltipEl.innerHTML = `<div style="font-weight:bold; margin-bottom:6px;">${timeStr}</div>${vRow}${cRow}`;
