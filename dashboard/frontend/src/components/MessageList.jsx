@@ -147,6 +147,8 @@ const MessageList = ({ startTime, endTime }) => {
     const [pageInput, setPageInput] = useState('');
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [refreshInterval, setRefreshInterval] = useState(10);
+    const [authorFilter, setAuthorFilter] = useState('');
+    const [messageFilter, setMessageFilter] = useState('');
     const limit = 20;
 
     // Auto-refresh effect
@@ -158,15 +160,15 @@ const MessageList = ({ startTime, endTime }) => {
         }, refreshInterval * 1000);
 
         return () => clearInterval(intervalId);
-    }, [autoRefresh, refreshInterval, startTime, endTime, currentPage]);
+    }, [autoRefresh, refreshInterval, startTime, endTime, currentPage, authorFilter, messageFilter]);
 
     useEffect(() => {
-        setCurrentPage(1); // Reset to first page when time range changes
-    }, [startTime, endTime]);
+        setCurrentPage(1); // Reset to first page when time range or filters change
+    }, [startTime, endTime, authorFilter, messageFilter]);
 
     useEffect(() => {
         fetchMessages();
-    }, [startTime, endTime, currentPage]);
+    }, [startTime, endTime, currentPage, authorFilter, messageFilter]);
 
     const fetchMessages = async () => {
         try {
@@ -179,6 +181,8 @@ const MessageList = ({ startTime, endTime }) => {
 
             if (startTime) params.append('start_time', startTime);
             if (endTime) params.append('end_time', endTime);
+            if (authorFilter) params.append('author_filter', authorFilter);
+            if (messageFilter) params.append('message_filter', messageFilter);
 
             const response = await fetch(`http://localhost:8000/api/chat/messages?${params}`);
             if (!response.ok) {
@@ -223,6 +227,61 @@ const MessageList = ({ startTime, endTime }) => {
     return (
         <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4 text-gray-800">訊息列表</h2>
+
+            {/* Filter Section */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium w-20">作者：</label>
+                    <input
+                        type="text"
+                        value={authorFilter}
+                        onChange={(e) => setAuthorFilter(e.target.value)}
+                        placeholder="搜尋作者名稱..."
+                        className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {authorFilter && (
+                        <button
+                            onClick={() => setAuthorFilter('')}
+                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded transition"
+                        >
+                            清除
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium w-20">訊息：</label>
+                    <input
+                        type="text"
+                        value={messageFilter}
+                        onChange={(e) => setMessageFilter(e.target.value)}
+                        placeholder="搜尋訊息內容（支援 emoji）..."
+                        className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {messageFilter && (
+                        <button
+                            onClick={() => setMessageFilter('')}
+                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded transition"
+                        >
+                            清除
+                        </button>
+                    )}
+                </div>
+
+                {(authorFilter || messageFilter) && (
+                    <div className="flex justify-end">
+                        <button
+                            onClick={() => {
+                                setAuthorFilter('');
+                                setMessageFilter('');
+                            }}
+                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-sm rounded transition"
+                        >
+                            清除所有篩選
+                        </button>
+                    </div>
+                )}
+            </div>
             <div className="mb-2 grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
                 <span>時間</span>
                 <span>作者</span>
