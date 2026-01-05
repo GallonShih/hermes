@@ -262,7 +262,7 @@ function Dashboard() {
         },
         plugins: {
             legend: { position: 'top' },
-            title: { display: true, text: 'Real-time Analytics (12H)' },
+            title: { display: true, text: 'Real-time Analytics' },
             tooltip: {
                 enabled: false, // Disable default canvas tooltip
                 external: (context) => {
