@@ -390,48 +390,64 @@ function Dashboard() {
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
-                <header className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <h1 className="text-3xl font-bold text-gray-800">Hermes 監控儀表板</h1>
+                {/* Header with Title and Navigation */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+                    <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">Hermes 監控儀表板</h1>
 
-                    <div className="flex gap-4">
-                        <Link to="/" className="text-blue-600 font-bold underline">Dashboard</Link>
-                        <Link to="/admin" className="text-gray-600 hover:text-blue-600">Admin Panel</Link>
+                    <div className="flex gap-3">
+                        <Link
+                            to="/"
+                            className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                        >
+                            📊 Dashboard
+                        </Link>
+                        <Link
+                            to="/admin"
+                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
+                        >
+                            ⚙️ Admin Panel
+                        </Link>
                     </div>
+                </div>
 
-                    <div className="flex items-center gap-2 bg-white p-3 rounded shadow">
-                        <label className="text-sm font-semibold text-gray-600">Range:</label>
+                {/* Time Filter Section */}
+                <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <label className="text-sm font-semibold text-gray-700">時間範圍:</label>
                         <button
                             onClick={() => setStartDate(formatLocalHour(new Date(Date.now() - 12 * 60 * 60 * 1000)))}
-                            className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs text-gray-600"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
                         >
                             -12H
                         </button>
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border rounded p-1 text-sm cursor-pointer"
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
+                            placeholder="開始時間"
                         />
-                        <span className="text-gray-400">to</span>
+                        <span className="text-gray-500 font-medium">→</span>
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border rounded p-1 text-sm cursor-pointer"
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
+                            placeholder="結束時間"
                         />
                         <button
                             onClick={() => setEndDate(formatLocalHour(new Date()))}
-                            className="bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded text-xs text-gray-600 mr-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
                         >
-                            Now
+                            現在
                         </button>
                         <button
                             onClick={handleFilter}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded text-sm font-medium transition-colors"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
                         >
-                            Filter
+                            🔍 篩選
                         </button>
                         {(startDate || endDate) && (
                             <button
@@ -449,13 +465,13 @@ function Dashboard() {
                                         max: now.getTime(),
                                     });
                                 }}
-                                className="text-red-500 hover:text-red-700 text-sm underline ml-2"
+                                className="text-red-600 hover:text-red-700 text-sm font-medium underline transition-colors"
                             >
-                                Clear
+                                ✕ 清除
                             </button>
                         )}
                     </div>
-                </header>
+                </div>
 
 
                 <div className="bg-white p-6 rounded-lg shadow-md h-[80vh]">
