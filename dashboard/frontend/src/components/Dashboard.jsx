@@ -490,11 +490,11 @@ function Dashboard() {
                 {/* Message List */}
                 <MessageList
                     startTime={startDate ? new Date(startDate).toISOString() : null}
-                    endTime={(() => {
-                        const d = endDate ? new Date(endDate) : new Date();
+                    endTime={endDate ? (() => {
+                        const d = new Date(endDate);
                         d.setMinutes(59, 59, 999);
                         return d.toISOString();
-                    })()}
+                    })() : null}
                     hasTimeFilter={!!endDate}
                 />
             </div >
