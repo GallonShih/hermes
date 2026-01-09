@@ -127,12 +127,17 @@ const MessageRow = ({ message }) => {
         );
     };
 
+    const moneyText = message.message_type === 'paid_message' && message.money ? message.money.text : '';
+
     return (
-        <div className="grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)] gap-4 text-sm border-b border-gray-200 py-2 hover:bg-gray-50">
+        <div className="grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)_minmax(120px,150px)] gap-4 text-sm border-b border-gray-200 py-2 hover:bg-gray-50">
             <span className="text-gray-500 whitespace-nowrap">{formatTime(message.time)}</span>
             <span className="font-semibold text-gray-700 truncate">{message.author || 'Unknown'}</span>
             <span className="text-gray-900 break-words">
                 {renderMessageWithEmojis(message.message, message.emotes)}
+            </span>
+            <span className={`font-semibold ${moneyText ? 'text-green-600' : 'text-gray-400'}`}>
+                {moneyText || '-'}
             </span>
         </div>
     );
@@ -149,6 +154,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     const [refreshInterval, setRefreshInterval] = useState(10);
     const [authorFilter, setAuthorFilter] = useState('');
     const [messageFilter, setMessageFilter] = useState('');
+    const [paidMessageFilter, setPaidMessageFilter] = useState('all');
     const limit = 20;
 
     // Auto-refresh effect
@@ -165,11 +171,11 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
 
     useEffect(() => {
         setCurrentPage(1); // Reset to first page when time range or filters change
-    }, [startTime, endTime, authorFilter, messageFilter]);
+    }, [startTime, endTime, authorFilter, messageFilter, paidMessageFilter]);
 
     useEffect(() => {
         fetchMessages();
-    }, [startTime, endTime, currentPage, authorFilter, messageFilter]);
+    }, [startTime, endTime, currentPage, authorFilter, messageFilter, paidMessageFilter]);
 
     const fetchMessages = async () => {
         try {
@@ -184,6 +190,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
             if (endTime) params.append('end_time', endTime);
             if (authorFilter) params.append('author_filter', authorFilter);
             if (messageFilter) params.append('message_filter', messageFilter);
+            if (paidMessageFilter !== 'all') params.append('paid_message_filter', paidMessageFilter);
 
             const response = await fetch(`http://localhost:8000/api/chat/messages?${params}`);
             if (!response.ok) {
@@ -269,12 +276,26 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                     )}
                 </div>
 
-                {(authorFilter || messageFilter) && (
+                <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium w-20">訊息類型：</label>
+                    <select
+                        value={paidMessageFilter}
+                        onChange={(e) => setPaidMessageFilter(e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="all">全部</option>
+                        <option value="paid_only">僅付費訊息</option>
+                        <option value="non_paid_only">僅一般訊息</option>
+                    </select>
+                </div>
+
+                {(authorFilter || messageFilter || paidMessageFilter !== 'all') && (
                     <div className="flex justify-end">
                         <button
                             onClick={() => {
                                 setAuthorFilter('');
                                 setMessageFilter('');
+                                setPaidMessageFilter('all');
                             }}
                             className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-sm rounded transition"
                         >
@@ -283,10 +304,11 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                     </div>
                 )}
             </div>
-            <div className="mb-2 grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
+            <div className="mb-2 grid grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)_minmax(120px,150px)] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
                 <span>時間</span>
                 <span>作者</span>
                 <span>訊息</span>
+                <span>金額</span>
             </div>
             <div className="space-y-0 max-h-96 overflow-y-auto">
                 {messages.length === 0 ? (

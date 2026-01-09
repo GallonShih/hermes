@@ -155,6 +155,7 @@ def get_chat_messages(
     end_time: datetime = None,
     author_filter: str = None,
     message_filter: str = None,
+    paid_message_filter: str = 'all',
     db: Session = Depends(get_db)
 ):
     """
@@ -168,6 +169,7 @@ def get_chat_messages(
         end_time: Filter messages up to this time (UTC)
         author_filter: Filter by author name (case-insensitive, fuzzy match)
         message_filter: Filter by message content (case-insensitive, fuzzy match)
+        paid_message_filter: Filter by payment type ('all', 'paid_only', 'non_paid_only')
     
     Returns:
         {
@@ -199,6 +201,12 @@ def get_chat_messages(
         if message_filter:
             query = query.filter(ChatMessage.message.ilike(f'%{message_filter}%'))
         
+        # Apply paid message filter
+        if paid_message_filter == 'paid_only':
+            query = query.filter(ChatMessage.message_type == 'paid_message')
+        elif paid_message_filter == 'non_paid_only':
+            query = query.filter(ChatMessage.message_type != 'paid_message')
+        
         # Get total count for pagination (before limit/offset)
         total = query.count()
         
@@ -213,7 +221,9 @@ def get_chat_messages(
                     "time": msg.published_at.isoformat() if msg.published_at else None,
                     "author": msg.author_name,
                     "message": msg.message,
-                    "emotes": msg.emotes if msg.emotes else []
+                    "emotes": msg.emotes if msg.emotes else [],
+                    "message_type": msg.message_type,
+                    "money": msg.raw_data.get('money') if msg.raw_data else None
                 }
                 for msg in messages
             ],

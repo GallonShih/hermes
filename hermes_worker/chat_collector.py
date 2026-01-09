@@ -26,7 +26,7 @@ class ChatCollector:
         self.is_running = True
 
         try:
-            chat = self.chat_downloader.get_chat(url)
+            chat = self.chat_downloader.get_chat(url, message_groups=['all'])
 
             for message_data in chat:
                 if not self.is_running:
