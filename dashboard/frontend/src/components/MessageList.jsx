@@ -146,6 +146,8 @@ const MessageRow = ({ message }) => {
 const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalMessages, setTotalMessages] = useState(0);
@@ -179,7 +181,11 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
 
     const fetchMessages = async () => {
         try {
-            setLoading(true);
+            if (isInitialLoad) {
+                setLoading(true);
+            } else {
+                setIsRefreshing(true);
+            }
             const offset = (currentPage - 1) * limit;
             const params = new URLSearchParams({
                 limit: limit.toString(),
@@ -205,12 +211,14 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
             setError(err.message);
         } finally {
             setLoading(false);
+            setIsInitialLoad(false);
+            setIsRefreshing(false);
         }
     };
 
     const totalPages = Math.ceil(totalMessages / limit);
 
-    if (loading) {
+    if (loading && isInitialLoad) {
         return (
             <div className="mt-8 bg-white rounded-lg shadow p-6">
                 <h2 className="text-2xl font-bold mb-4 text-gray-800">訊息列表</h2>
@@ -234,7 +242,14 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
 
     return (
         <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">訊息列表</h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">訊息列表</h2>
+                {isRefreshing && (
+                    <div className="text-sm text-blue-600 animate-pulse">
+                        🔄 更新中...
+                    </div>
+                )}
+            </div>
 
             {/* Filter Section */}
             <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-3">
