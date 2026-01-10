@@ -15,6 +15,7 @@ import { Chart } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
 import { enUS } from 'date-fns/locale';
 import MessageList from './MessageList';
+import MoneyStats from './MoneyStats';
 import { Link } from 'react-router-dom';
 
 ChartJS.register(
@@ -487,6 +488,17 @@ function Dashboard() {
                     <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin]} />
                 </div>
 
+                {/* Money Statistics */}
+                <MoneyStats
+                    startTime={startDate ? new Date(startDate).toISOString() : null}
+                    endTime={endDate ? (() => {
+                        const d = new Date(endDate);
+                        d.setMinutes(59, 59, 999);
+                        return d.toISOString();
+                    })() : null}
+                    hasTimeFilter={!!endDate}
+                />
+
                 {/* Message List */}
                 <MessageList
                     startTime={startDate ? new Date(startDate).toISOString() : null}
@@ -503,3 +515,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

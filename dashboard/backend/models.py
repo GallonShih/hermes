@@ -174,3 +174,18 @@ class PendingSpecialWord(Base):
 
     def __repr__(self):
         return f"<PendingSpecialWord(id={self.id}, word={self.word}, type={self.word_type}, status={self.status})>"
+
+
+# Currency Rate Model
+
+class CurrencyRate(Base):
+    """匯率管理表"""
+    __tablename__ = 'currency_rates'
+
+    currency = Column(String(10), primary_key=True)  # Currency code (e.g., USD, JPY, HKD)
+    rate_to_twd = Column(JSON)  # Exchange rate to TWD, stored as JSON to handle float
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+    notes = Column(String(255))  # Optional notes
+
+    def __repr__(self):
+        return f"<CurrencyRate(currency={self.currency}, rate={self.rate_to_twd})>"

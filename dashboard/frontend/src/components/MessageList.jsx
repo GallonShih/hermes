@@ -167,7 +167,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
         }, refreshInterval * 1000);
 
         return () => clearInterval(intervalId);
-    }, [autoRefresh, refreshInterval, startTime, endTime, currentPage, authorFilter, messageFilter, hasTimeFilter]);
+    }, [autoRefresh, refreshInterval, startTime, endTime, currentPage, authorFilter, messageFilter, paidMessageFilter, hasTimeFilter]);
 
     useEffect(() => {
         setCurrentPage(1); // Reset to first page when time range or filters change

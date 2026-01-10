@@ -5,7 +5,7 @@ from database import get_db_session, get_db_manager
 from models import (
     StreamStats, ChatMessage,
     PendingReplaceWord, PendingSpecialWord,
-    ReplaceWord, SpecialWord
+    ReplaceWord, SpecialWord, CurrencyRate
 )
 from validation import (
     validate_replace_word,
@@ -36,6 +36,17 @@ app.add_middleware(
 
 # Initialize DB
 db_manager = get_db_manager()
+
+# Startup event: Create tables automatically
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables on startup"""
+    try:
+        db_manager.create_tables()
+        logger.info("✓ Database tables created/verified successfully")
+    except Exception as e:
+        logger.error(f"Error creating tables on startup: {e}")
+        raise
 
 def get_db():
     with get_db_session() as session:
@@ -1094,4 +1105,259 @@ def add_special_word(
         db.rollback()
         logger.error(f"Error adding special word: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# Currency Rate Management API Endpoints
+# ============================================
+
+@app.get("/api/admin/currency-rates")
+def get_currency_rates(db: Session = Depends(get_db)):
+    """
+    獲取所有已設定的匯率
+    """
+    try:
+        rates = db.query(CurrencyRate).order_by(CurrencyRate.currency).all()
+        
+        return {
+            "rates": [
+                {
+                    "currency": rate.currency,
+                    "rate_to_twd": float(rate.rate_to_twd) if rate.rate_to_twd else 0.0,
+                    "updated_at": rate.updated_at.isoformat() if rate.updated_at else None,
+                    "notes": rate.notes
+                }
+                for rate in rates
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching currency rates: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/currency-rates")
+def upsert_currency_rate(
+    currency: str = Body(...),
+    rate_to_twd: float = Body(...),
+    notes: str = Body(''),
+    db: Session = Depends(get_db)
+):
+    """
+    新增或更新匯率
+    """
+    try:
+        # Validate inputs
+        if not currency or len(currency) > 10:
+            raise HTTPException(status_code=400, detail="Invalid currency code")
+        
+        if rate_to_twd < 0:
+            raise HTTPException(status_code=400, detail="Exchange rate must be non-negative")
+        
+        # Convert to uppercase for consistency
+        currency = currency.upper().strip()
+        
+        # Check if exists
+        existing = db.query(CurrencyRate).filter(
+            CurrencyRate.currency == currency
+        ).first()
+        
+        if existing:
+            # Update
+            existing.rate_to_twd = rate_to_twd
+            existing.notes = notes
+            existing.updated_at = func.now()
+            message = f"Currency rate for {currency} updated successfully"
+        else:
+            # Insert
+            new_rate = CurrencyRate(
+                currency=currency,
+                rate_to_twd=rate_to_twd,
+                notes=notes
+            )
+            db.add(new_rate)
+            message = f"Currency rate for {currency} added successfully"
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": message,
+            "currency": currency,
+            "rate_to_twd": rate_to_twd
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error upserting currency rate: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/admin/currency-rates/unknown")
+def get_unknown_currencies(db: Session = Depends(get_db)):
+    """
+    列出資料庫中有出現但尚未設定匯率的幣別
+    """
+    try:
+        # Get all currencies from chat_messages
+        result = db.execute(text("""
+            SELECT DISTINCT raw_data->'money'->>'currency' as currency,
+                   COUNT(*) as message_count
+            FROM chat_messages
+            WHERE raw_data->'money' IS NOT NULL
+              AND raw_data->'money'->>'currency' IS NOT NULL
+            GROUP BY currency
+            ORDER BY message_count DESC
+        """))
+        
+        all_currencies = [(row[0], row[1]) for row in result if row[0]]
+        
+        # Get currencies that already have rates
+        existing_rates = db.query(CurrencyRate.currency).all()
+        existing_currency_set = {rate[0] for rate in existing_rates}
+        
+        # Filter out currencies that already have rates
+        unknown = [
+            {
+                "currency": curr,
+                "message_count": count
+            }
+            for curr, count in all_currencies
+            if curr not in existing_currency_set
+        ]
+        
+        return {
+            "unknown_currencies": unknown,
+            "total": len(unknown)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching unknown currencies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# Money Summary Statistics API
+# ============================================
+
+@app.get("/api/stats/money-summary")
+def get_money_summary(
+    start_time: datetime = None,
+    end_time: datetime = None,
+    db: Session = Depends(get_db)
+):
+    """
+    計算指定時間範圍內的金額統計
+    
+    Args:
+        start_time: 開始時間 (UTC)
+        end_time: 結束時間 (UTC)
+    
+    Returns:
+        total_amount_twd: 總金額（台幣）
+        paid_message_count: 付費訊息數量
+        top_authors: 前 5 名作者及其金額
+        unknown_currencies: 無法轉換的幣別列表
+    """
+    try:
+        # Query paid messages
+        query = db.query(ChatMessage).filter(
+            ChatMessage.message_type == 'paid_message'
+        )
+        
+        # Apply time filters
+        if start_time:
+            query = query.filter(ChatMessage.published_at >= start_time)
+        if end_time:
+            query = query.filter(ChatMessage.published_at <= end_time)
+        
+        messages = query.all()
+        
+        # Get all currency rates
+        rates_query = db.query(CurrencyRate).all()
+        rate_map = {rate.currency: float(rate.rate_to_twd) if rate.rate_to_twd else 0.0 for rate in rates_query}
+        
+        # Calculate statistics
+        total_twd = 0.0
+        author_amounts = {}  # {author_name: {'amount_twd': float, 'count': int}}
+        unknown_currencies = set()
+        paid_count = 0
+        
+        for msg in messages:
+            if not msg.raw_data or 'money' not in msg.raw_data:
+                continue
+            
+            money_data = msg.raw_data.get('money')
+            if not money_data:
+                continue
+            
+            currency = money_data.get('currency')
+            amount_str = money_data.get('amount')
+            
+            # Skip if no currency or amount
+            if not currency or not amount_str:
+                continue
+            
+            # Parse amount (handle different formats)
+            try:
+                # Remove common currency symbols and commas
+                amount_str = str(amount_str).replace(',', '').replace('$', '').strip()
+                amount = float(amount_str)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse amount: {amount_str}")
+                continue
+            
+            # Convert to TWD
+            if currency in rate_map:
+                amount_twd = amount * rate_map[currency]
+                total_twd += amount_twd
+                
+                # Track by author
+                author = msg.author_name or 'Unknown'
+                if author not in author_amounts:
+                    author_amounts[author] = {'amount_twd': 0.0, 'count': 0}
+                
+                author_amounts[author]['amount_twd'] += amount_twd
+                author_amounts[author]['count'] += 1
+                paid_count += 1
+            else:
+                # Unknown currency
+                unknown_currencies.add(currency)
+        
+        # Get top 5 authors, but include ties
+        # Sort authors by amount descending
+        sorted_authors = sorted(
+            [
+                {
+                    'author': author,
+                    'amount_twd': round(data['amount_twd'], 2),
+                    'message_count': data['count']
+                }
+                for author, data in author_amounts.items()
+            ],
+            key=lambda x: x['amount_twd'],
+            reverse=True
+        )
+        
+        # If we have more than 5, check for ties at the 5th position
+        if len(sorted_authors) > 5:
+            fifth_amount = sorted_authors[4]['amount_twd']
+            # Include all authors with amount >= 5th place amount
+            top_authors = [a for a in sorted_authors if a['amount_twd'] >= fifth_amount]
+        else:
+            top_authors = sorted_authors
+
+        
+        return {
+            "total_amount_twd": round(total_twd, 2),
+            "paid_message_count": paid_count,
+            "top_authors": top_authors,
+            "unknown_currencies": list(unknown_currencies)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating money summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
