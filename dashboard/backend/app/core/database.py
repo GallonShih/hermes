@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-from models import Base
+from app.models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +71,7 @@ def get_db_session():
         raise
     finally:
         session.close()
+
+def get_db():
+    with get_db_session() as session:
+        yield session

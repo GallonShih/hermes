@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
-from models import ReplaceWord, SpecialWord, PendingReplaceWord, PendingSpecialWord
+from app.models import ReplaceWord, SpecialWord, PendingReplaceWord, PendingSpecialWord
 import logging
 
 logger = logging.getLogger(__name__)
