@@ -14,13 +14,16 @@ class DatabaseManager:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable is required")
 
-        self.engine = create_engine(
-            self.database_url,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
-            echo=False
-        )
+        engine_args = {"echo": False}
+        
+        if self.database_url.startswith("postgresql"):
+            engine_args.update({
+                "pool_size": 5,
+                "max_overflow": 10,
+                "pool_pre_ping": True,
+            })
+
+        self.engine = create_engine(self.database_url, **engine_args)
 
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 

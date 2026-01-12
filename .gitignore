@@ -63,3 +63,6 @@ logs/
 
 # PID files
 *.pid
+# Coverage
+.coverage
+htmlcov/
