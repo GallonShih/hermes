@@ -4,6 +4,7 @@ description: Initialize Git, configure .gitignore, and commit changes
 
 1. Check repository status
 
+   // turbo
    - Run `git status`
    - If the directory is not a git repository, initialize it with `git init`.
 
@@ -15,17 +16,25 @@ description: Initialize Git, configure .gitignore, and commit changes
      - Python: `__pycache__`, `*.pyc`, `.venv`
      - IDEs: `.vscode`, `.idea`
      - Cache directories: `.mypy_cache`, `.ruff_cache`
+     - Coverage: `.coverage`, `htmlcov/`
+     - Backup files: `*.bak`
    - // turbo
    - Append missing entries if necessary.
 
 
 3. Stage all files
 
-   - // turbo
+   // turbo
    - Run `git add .`
 
 
-4. Commit changes
+4. Review staged changes
+
+   // turbo
+   - Run `git diff --cached --stat` to see what will be committed
+
+
+5. Commit changes
 
    - Generate a short, descriptive commit message based on the changes.
    - The commit message should be structured as follows:
