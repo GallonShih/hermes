@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 class HermesWorker:
     def __init__(self, youtube_url=None):
-        # Use URL from config if not provided
-        self.youtube_url = youtube_url or Config.YOUTUBE_URL
+        # Use URL from DB first, then config, then parameter
+        self.youtube_url = youtube_url or Config.get_youtube_url_from_db()
         if not self.youtube_url:
-            raise ValueError("YouTube URL must be provided either as parameter or in YOUTUBE_URL environment variable")
+            raise ValueError("YouTube URL must be provided (parameter, database, or YOUTUBE_URL env)")
 
         self.video_id = extract_video_id_from_url(self.youtube_url)
 
@@ -38,7 +38,9 @@ class HermesWorker:
         # Threading
         self.chat_thread = None
         self.stats_thread = None
+        self.url_monitor_thread = None
         self.is_running = False
+        self._restart_lock = threading.Lock()
 
     def start(self):
         """Start the Hermes worker"""
@@ -76,6 +78,14 @@ class HermesWorker:
         )
         self.stats_thread.daemon = True
         self.stats_thread.start()
+
+        # Start URL monitoring thread
+        self.url_monitor_thread = threading.Thread(
+            target=self._monitor_url_changes,
+            name="URLMonitor"
+        )
+        self.url_monitor_thread.daemon = True
+        self.url_monitor_thread.start()
 
         logger.info(f"Worker started for video: {self.video_id}")
         logger.info("Press Ctrl+C to stop...")
@@ -153,6 +163,49 @@ class HermesWorker:
                     logger.info("Restarting stats polling in 60 seconds...")
                     time.sleep(60)
 
+    def _monitor_url_changes(self):
+        """Monitor for YouTube URL changes in database"""
+        logger.info(f"URL monitor started (checking every {Config.URL_CHECK_INTERVAL}s)")
+        
+        while self.is_running:
+            try:
+                time.sleep(Config.URL_CHECK_INTERVAL)
+                
+                if not self.is_running:
+                    break
+                
+                new_url = Config.get_youtube_url_from_db()
+                
+                if new_url and new_url != self.youtube_url:
+                    logger.info(f"URL change detected!")
+                    logger.info(f"  Old: {self.youtube_url}")
+                    logger.info(f"  New: {new_url}")
+                    self._handle_url_change(new_url)
+                    
+            except Exception as e:
+                logger.error(f"Error checking URL: {e}")
+
+    def _handle_url_change(self, new_url):
+        """Handle YouTube URL change by restarting collectors"""
+        with self._restart_lock:
+            logger.info("Restarting collectors with new URL...")
+            
+            # Stop current collectors
+            if self.chat_collector:
+                self.chat_collector.stop_collection()
+            if self.stats_collector:
+                self.stats_collector.stop_polling()
+            
+            # Update URL and video ID
+            self.youtube_url = new_url
+            self.video_id = extract_video_id_from_url(new_url)
+            
+            # Create new collectors
+            self.chat_collector = ChatCollector(self.video_id)
+            self.stats_collector = StatsCollector()
+            
+            logger.info(f"Collectors restarted for new video: {self.video_id}")
+
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
@@ -172,7 +225,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Create and start worker (will use URL from env if not provided)
+    # Create and start worker (will use URL from DB/env if not provided)
     worker = HermesWorker(youtube_url)
 
     try:

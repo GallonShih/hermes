@@ -3,7 +3,7 @@ import logging
 
 from app.core.config import setup_cors
 from app.core.database import get_db_manager
-from app.routers import stats, chat, admin_words, admin_currency
+from app.routers import stats, chat, admin_words, admin_currency, admin_settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,3 +31,4 @@ app.include_router(stats.router)
 app.include_router(chat.router)
 app.include_router(admin_words.router)
 app.include_router(admin_currency.router)
+app.include_router(admin_settings.router)

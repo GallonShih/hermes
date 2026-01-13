@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import ReplaceWordsReview from './ReplaceWordsReview';
 import SpecialWordsReview from './SpecialWordsReview';
 import CurrencyRateManager from './CurrencyRateManager';
+import SettingsManager from './SettingsManager';
 
 const AdminPanel = () => {
-    const [activeTab, setActiveTab] = useState('replace'); // 'replace', 'special', or 'currency'
+    const [activeTab, setActiveTab] = useState('replace');
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
@@ -30,9 +31,9 @@ const AdminPanel = () => {
                 </header>
 
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="flex border-b border-gray-200">
+                    <div className="flex border-b border-gray-200 overflow-x-auto">
                         <button
-                            className={`px-6 py-4 font-medium text-sm focus:outline-none ${activeTab === 'replace'
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'replace'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -41,7 +42,7 @@ const AdminPanel = () => {
                             Pending Replace Words
                         </button>
                         <button
-                            className={`px-6 py-4 font-medium text-sm focus:outline-none ${activeTab === 'special'
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'special'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -50,7 +51,7 @@ const AdminPanel = () => {
                             Pending Special Words
                         </button>
                         <button
-                            className={`px-6 py-4 font-medium text-sm focus:outline-none ${activeTab === 'currency'
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'currency'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -58,12 +59,22 @@ const AdminPanel = () => {
                         >
                             Currency Rates 💱
                         </button>
+                        <button
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'settings'
+                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
+                            onClick={() => setActiveTab('settings')}
+                        >
+                            Settings ⚙️
+                        </button>
                     </div>
 
                     <div className="p-6">
                         {activeTab === 'replace' && <ReplaceWordsReview />}
                         {activeTab === 'special' && <SpecialWordsReview />}
                         {activeTab === 'currency' && <CurrencyRateManager />}
+                        {activeTab === 'settings' && <SettingsManager />}
                     </div>
                 </div>
             </div>
@@ -72,4 +83,3 @@ const AdminPanel = () => {
 };
 
 export default AdminPanel;
-

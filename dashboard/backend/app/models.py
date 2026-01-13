@@ -163,3 +163,14 @@ class CurrencyRate(Base):
 
     def __repr__(self):
         return f"<CurrencyRate(currency={self.currency}, rate={self.rate_to_twd})>"
+
+class SystemSetting(Base):
+    __tablename__ = 'system_settings'
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+    description = Column(String(500))
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<SystemSetting(key={self.key}, value={self.value})>"
