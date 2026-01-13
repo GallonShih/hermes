@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import logging
 
 from app.core.database import get_db
+from app.core.settings import get_current_video_id
 from app.models import StreamStats, ChatMessage, CurrencyRate
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,10 @@ def get_viewer_stats(
 ):
     try:
         query = db.query(StreamStats).order_by(StreamStats.collected_at.desc())
+        
+        video_id = get_current_video_id(db)
+        if video_id:
+            query = query.filter(StreamStats.live_stream_id == video_id)
         
         if start_time and end_time:
             query = query.filter(StreamStats.collected_at >= start_time, StreamStats.collected_at <= end_time)
@@ -67,6 +72,10 @@ def get_comment_stats_hourly(
             ChatMessage.published_at >= start_time
         )
         
+        video_id = get_current_video_id(db)
+        if video_id:
+            query = query.filter(ChatMessage.live_stream_id == video_id)
+        
         if end_time:
              query = query.filter(ChatMessage.published_at <= end_time)
              
@@ -99,6 +108,10 @@ def get_money_summary(
         query = db.query(ChatMessage).filter(
             ChatMessage.message_type == 'paid_message'
         )
+        
+        video_id = get_current_video_id(db)
+        if video_id:
+            query = query.filter(ChatMessage.live_stream_id == video_id)
         
         if start_time:
             query = query.filter(ChatMessage.published_at >= start_time)

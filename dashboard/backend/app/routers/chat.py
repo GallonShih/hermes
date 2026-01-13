@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 
 from app.core.database import get_db
+from app.core.settings import get_current_video_id
 from app.models import ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ def get_chat_messages(
             limit = 500
         
         query = db.query(ChatMessage).order_by(ChatMessage.published_at.desc())
+        
+        video_id = get_current_video_id(db)
+        if video_id:
+            query = query.filter(ChatMessage.live_stream_id == video_id)
         
         if start_time:
             query = query.filter(ChatMessage.published_at >= start_time)
