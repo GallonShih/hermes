@@ -163,35 +163,83 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                 </div>
             </div>
 
-            {/* Word Cloud Area */}
-            <div className="border border-gray-200 rounded-lg bg-gray-50 mb-4" style={{ minHeight: '400px' }}>
-                {loading ? (
-                    <div className="flex items-center justify-center h-[400px] text-gray-500">
-                        載入中...
+            {/* Word Cloud + Word List Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+                {/* Word Cloud Area - 3/4 width */}
+                <div className="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50" style={{ minHeight: '400px' }}>
+                    {loading ? (
+                        <div className="flex items-center justify-center h-[400px] text-gray-500">
+                            載入中...
+                        </div>
+                    ) : error ? (
+                        <div className="flex items-center justify-center h-[400px] text-red-500">
+                            錯誤: {error}
+                        </div>
+                    ) : wordData.length === 0 ? (
+                        <div className="flex items-center justify-center h-[400px] text-gray-500">
+                            沒有資料。請確認 processed_chat_messages 表有資料。
+                        </div>
+                    ) : (
+                        <WordCloud
+                            key={seed}
+                            data={wordData}
+                            width={600}
+                            height={400}
+                            font="sans-serif"
+                            fontWeight="bold"
+                            fontSize={fontSize}
+                            rotate={rotate}
+                            fill={fill}
+                            padding={2}
+                            random={seededRandom}
+                        />
+                    )}
+                </div>
+
+                {/* Word List Panel - 1/4 width */}
+                <div className="lg:col-span-1 border border-gray-200 rounded-lg bg-white p-3" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    <div className="text-sm font-semibold text-gray-700 mb-2 sticky top-0 bg-white pb-1 border-b">
+                        📊 詞頻排行 ({wordData.length})
                     </div>
-                ) : error ? (
-                    <div className="flex items-center justify-center h-[400px] text-red-500">
-                        錯誤: {error}
+                    <div className="space-y-1">
+                        {wordData.slice(0, 50).map((word, index) => (
+                            <div
+                                key={word.text}
+                                className="flex items-center justify-between text-sm hover:bg-gray-50 rounded px-1 py-0.5 group"
+                            >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="text-gray-400 w-5 text-right flex-shrink-0">{index + 1}.</span>
+                                    <span
+                                        className="truncate font-medium"
+                                        style={{ color: fill(word, index) }}
+                                        title={word.text}
+                                    >
+                                        {word.text}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    <span className="text-gray-500 text-xs">{word.value.toLocaleString()}</span>
+                                    <button
+                                        onClick={() => {
+                                            if (!excludeWords.includes(word.text)) {
+                                                setExcludeWords([...excludeWords, word.text]);
+                                            }
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity"
+                                        title="加入排除"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {wordData.length > 50 && (
+                            <div className="text-xs text-gray-400 text-center pt-2">
+                                顯示前 50 個詞
+                            </div>
+                        )}
                     </div>
-                ) : wordData.length === 0 ? (
-                    <div className="flex items-center justify-center h-[400px] text-gray-500">
-                        沒有資料。請確認 processed_chat_messages 表有資料。
-                    </div>
-                ) : (
-                    <WordCloud
-                        key={seed}
-                        data={wordData}
-                        width={800}
-                        height={400}
-                        font="sans-serif"
-                        fontWeight="bold"
-                        fontSize={fontSize}
-                        rotate={rotate}
-                        fill={fill}
-                        padding={2}
-                        random={seededRandom}
-                    />
-                )}
+                </div>
             </div>
 
             {/* Controls Row */}
