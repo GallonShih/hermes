@@ -42,9 +42,9 @@ def get_playback_snapshots(
             raise HTTPException(status_code=400, detail="step_seconds must be at most 3600")
         
         # Limit total duration to prevent excessive data
-        max_duration = timedelta(days=7)
+        max_duration = timedelta(days=30)
         if end_time - start_time > max_duration:
-            raise HTTPException(status_code=400, detail="Time range cannot exceed 7 days")
+            raise HTTPException(status_code=400, detail="Time range cannot exceed 30 days")
         
         # Ensure timezone awareness (convert naive datetime to UTC)
         from datetime import timezone
