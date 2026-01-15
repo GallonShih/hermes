@@ -1,4 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    TimeScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import 'chartjs-adapter-date-fns';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    TimeScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend
+);
 
 const MessageRow = ({ message }) => {
     const formatTime = (utcTime) => {
@@ -157,7 +181,16 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     const [authorFilter, setAuthorFilter] = useState('');
     const [messageFilter, setMessageFilter] = useState('');
     const [paidMessageFilter, setPaidMessageFilter] = useState('all');
+    const [hourlyStats, setHourlyStats] = useState([]);
+    const [statsLoading, setStatsLoading] = useState(false);
     const limit = 20;
+
+    // Ref for Chart.js instance - enables direct updates without full re-render
+    const chartRef = useRef(null);
+    // Track last fetched hour for delta polling
+    const lastFetchedHourRef = useRef(null);
+    // Track if initial stats load has completed (use ref to avoid async timing issues)
+    const hasInitialStatsLoadedRef = useRef(false);
 
     // Auto-refresh effect
     useEffect(() => {
@@ -166,6 +199,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
 
         const intervalId = setInterval(() => {
             fetchMessages();
+            fetchHourlyStats();
         }, refreshInterval * 1000);
 
         return () => clearInterval(intervalId);
@@ -178,6 +212,11 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     useEffect(() => {
         fetchMessages();
     }, [startTime, endTime, currentPage, authorFilter, messageFilter, paidMessageFilter]);
+
+    // Separate effect for hourly stats - only when filters change, NOT on pagination
+    useEffect(() => {
+        fetchHourlyStats();
+    }, [startTime, endTime, authorFilter, messageFilter, paidMessageFilter]);
 
     const fetchMessages = async () => {
         try {
@@ -213,6 +252,195 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
             setLoading(false);
             setIsInitialLoad(false);
             setIsRefreshing(false);
+        }
+    };
+
+    const fetchHourlyStats = async (forceFullFetch = false) => {
+        try {
+            // Only show loading indicator on initial load
+            if (!hasInitialStatsLoadedRef.current) {
+                setStatsLoading(true);
+            }
+
+            const params = new URLSearchParams();
+
+            if (startTime) params.append('start_time', startTime);
+            if (endTime) params.append('end_time', endTime);
+            if (authorFilter) params.append('author_filter', authorFilter);
+            if (messageFilter) params.append('message_filter', messageFilter);
+            if (paidMessageFilter !== 'all') params.append('paid_message_filter', paidMessageFilter);
+
+            // Delta polling: use 'since' parameter for subsequent fetches
+            // Only applies when not using time filters (real-time mode)
+            const useIncrementalFetch = !forceFullFetch &&
+                hasInitialStatsLoadedRef.current &&
+                !startTime &&
+                !endTime &&
+                lastFetchedHourRef.current;
+
+            if (useIncrementalFetch) {
+                params.append('since', lastFetchedHourRef.current);
+            }
+
+            const response = await fetch(`http://localhost:8000/api/chat/message-stats?${params}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            if (data.length === 0) return; // No new data
+
+            // Update last fetched hour reference
+            lastFetchedHourRef.current = data[data.length - 1].hour;
+
+            if (!hasInitialStatsLoadedRef.current || forceFullFetch || startTime || endTime) {
+                // Full replacement for initial load or when filters are active
+                setHourlyStats(data || []);
+                hasInitialStatsLoadedRef.current = true;
+            } else {
+                // Incremental merge using Map for efficiency
+                setHourlyStats(prev => {
+                    const map = new Map(prev.map(item => [item.hour, item.count]));
+
+                    // Update or add new data points
+                    data.forEach(item => map.set(item.hour, item.count));
+
+                    // Convert back to sorted array
+                    const merged = Array.from(map.entries())
+                        .map(([hour, count]) => ({ hour, count }))
+                        .sort((a, b) => new Date(a.hour) - new Date(b.hour));
+
+                    return merged;
+                });
+
+                // Direct Chart.js update for smooth animation (if chart exists)
+                if (chartRef.current) {
+                    chartRef.current.update('active');
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching hourly stats:', err);
+        } finally {
+            setStatsLoading(false);
+        }
+    };
+
+    // Reset incremental state when filters change
+    useEffect(() => {
+        hasInitialStatsLoadedRef.current = false;
+        lastFetchedHourRef.current = null;
+    }, [startTime, endTime, authorFilter, messageFilter, paidMessageFilter]);
+
+    // Fill missing hours with 0 and prepare chart data
+    const filledChartData = useMemo(() => {
+        if (hourlyStats.length === 0) return [];
+
+        // Build a map of existing data
+        const dataMap = new Map();
+        hourlyStats.forEach(item => {
+            const ts = new Date(item.hour.endsWith('Z') ? item.hour : item.hour + 'Z').getTime();
+            dataMap.set(ts, item.count);
+        });
+
+        // Determine time range
+        let minTime, maxTime;
+        if (startTime && endTime) {
+            // Use filter time range
+            minTime = new Date(startTime);
+            minTime.setMinutes(0, 0, 0);
+            minTime = minTime.getTime();
+
+            maxTime = new Date(endTime);
+            maxTime.setMinutes(0, 0, 0);
+            maxTime = maxTime.getTime();
+        } else {
+            // Use data range
+            const times = Array.from(dataMap.keys());
+            minTime = Math.min(...times);
+            maxTime = Math.max(...times);
+        }
+
+        // Fill in missing hours
+        const result = [];
+        const oneHour = 60 * 60 * 1000;
+        for (let t = minTime; t <= maxTime; t += oneHour) {
+            result.push({
+                x: t,
+                y: dataMap.get(t) || 0
+            });
+        }
+
+        return result;
+    }, [hourlyStats, startTime, endTime]);
+
+    const chartData = {
+        datasets: [
+            {
+                label: '訊息數量',
+                data: filledChartData,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+            }
+        ]
+    };
+
+    // Calculate chart axis bounds based on time filter
+    const chartAxisBounds = useMemo(() => {
+        if (startTime && endTime) {
+            const minDate = new Date(startTime);
+            minDate.setMinutes(0, 0, 0);
+            const maxDate = new Date(endTime);
+            maxDate.setMinutes(59, 59, 999);
+            return { min: minDate.getTime(), max: maxDate.getTime() };
+        }
+        return {};
+    }, [startTime, endTime]);
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            title: {
+                display: true,
+                text: '每小時訊息量',
+                font: { size: 14, weight: 'bold' }
+            },
+            tooltip: {
+                callbacks: {
+                    title: (items) => {
+                        if (!items.length) return '';
+                        const date = new Date(items[0].raw.x);
+                        const pad = n => n.toString().padStart(2, '0');
+                        // Format as time range: HH:00 - HH:59
+                        const hour = date.getHours();
+                        const month = date.getMonth() + 1;
+                        const day = date.getDate();
+                        return `${pad(month)}/${pad(day)} ${pad(hour)}:00 - ${pad(hour)}:59`;
+                    },
+                    label: (item) => `訊息數: ${item.raw.y}`
+                }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'hour',
+                    displayFormats: { hour: 'MM/dd HH:mm' }
+                },
+                title: { display: true, text: '時間' },
+                ...chartAxisBounds
+            },
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: '訊息數' },
+                ticks: { stepSize: 1 }
+            }
         }
     };
 
@@ -408,6 +636,23 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                     </button>
                 </div>
             )}
+
+            {/* Hourly Message Chart */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="h-64">
+                    {statsLoading ? (
+                        <div className="flex justify-center items-center h-full">
+                            <div className="text-gray-500">載入圖表中...</div>
+                        </div>
+                    ) : hourlyStats.length === 0 ? (
+                        <div className="flex justify-center items-center h-full">
+                            <div className="text-gray-500">無資料可顯示</div>
+                        </div>
+                    ) : (
+                        <Line ref={chartRef} data={chartData} options={chartOptions} />
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
