@@ -386,6 +386,7 @@ function Dashboard() {
                 title: { display: true, text: 'Viewers' },
                 grid: { display: true },
                 beginAtZero: true,
+                ticks: { precision: 0 },
             },
             y2: {
                 type: 'linear',
@@ -394,6 +395,7 @@ function Dashboard() {
                 title: { display: true, text: 'Comments' },
                 grid: { drawOnChartArea: false }, // only want the grid lines for one axis to show up
                 beginAtZero: true,
+                ticks: { precision: 0 },
             },
         },
     };
