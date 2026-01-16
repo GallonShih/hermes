@@ -44,6 +44,13 @@ function Dashboard() {
     const [toggleRefresh, setToggleRefresh] = useState(true);
 
     // Dynamic Time Axis State
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
     const [timeAxisConfig, setTimeAxisConfig] = useState({
         type: 'time',
         time: {
@@ -491,8 +498,19 @@ function Dashboard() {
                 </div>
 
 
-                <div className="bg-white p-6 rounded-lg shadow-md h-[80vh]">
-                    <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin]} />
+                <div className="bg-white p-6 rounded-lg shadow-md h-[80vh] flex flex-col relative group">
+                    {/* Digital Clock */}
+                    <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300 opacity-100 pointer-events-none">
+                        <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-gray-100">
+                            <span className="font-mono text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-wider">
+                                {currentTime.toLocaleTimeString('en-GB')}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 w-full min-h-0 pt-12">
+                        <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin]} />
+                    </div>
                 </div>
 
                 {/* Money Statistics */}
