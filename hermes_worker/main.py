@@ -87,6 +87,14 @@ class HermesWorker:
         self.url_monitor_thread.daemon = True
         self.url_monitor_thread.start()
 
+        # Start chat watchdog thread
+        self.chat_watchdog_thread = threading.Thread(
+            target=self._chat_watchdog,
+            name="ChatWatchdog"
+        )
+        self.chat_watchdog_thread.daemon = True
+        self.chat_watchdog_thread.start()
+
         logger.info(f"Worker started for video: {self.video_id}")
         logger.info("Press Ctrl+C to stop...")
 
@@ -184,6 +192,40 @@ class HermesWorker:
                     
             except Exception as e:
                 logger.error(f"Error checking URL: {e}")
+
+    def _chat_watchdog(self):
+        """Monitor chat collector health and restart if hung"""
+        logger.info(f"Chat watchdog started (timeout: {Config.CHAT_WATCHDOG_TIMEOUT}s, check interval: {Config.CHAT_WATCHDOG_CHECK_INTERVAL}s)")
+        
+        while self.is_running:
+            try:
+                time.sleep(Config.CHAT_WATCHDOG_CHECK_INTERVAL)
+                
+                if not self.is_running:
+                    break
+                
+                # Check if chat collector has activity
+                if self.chat_collector and self.chat_collector.last_activity_time:
+                    idle_time = time.time() - self.chat_collector.last_activity_time
+                    
+                    if idle_time > Config.CHAT_WATCHDOG_TIMEOUT:
+                        logger.warning(f"Chat collector appears hung (no activity for {idle_time:.0f}s)")
+                        logger.info("Restarting chat collector...")
+                        
+                        # Stop current collector
+                        self.chat_collector.stop_collection()
+                        
+                        # Wait a moment for cleanup
+                        time.sleep(2)
+                        
+                        # Create new collector
+                        with self._restart_lock:
+                            self.chat_collector = ChatCollector(self.video_id)
+                        
+                        logger.info("Chat collector restarted by watchdog")
+                        
+            except Exception as e:
+                logger.error(f"Watchdog error: {e}")
 
     def _handle_url_change(self, new_url):
         """Handle YouTube URL change by restarting collectors"""

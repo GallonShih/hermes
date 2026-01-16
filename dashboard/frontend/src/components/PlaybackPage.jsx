@@ -46,6 +46,7 @@ function PlaybackPage() {
 
     // Refs for playback control
     const playIntervalRef = useRef(null);
+    const currentSnapshotRef = useRef(null);
 
     // Step options
     const stepOptions = [
@@ -138,6 +139,9 @@ function PlaybackPage() {
 
     // Current snapshot data
     const currentSnapshot = snapshots[currentIndex] || null;
+
+    // Keep ref in sync for plugin access
+    currentSnapshotRef.current = currentSnapshot;
 
     // Get data up to current index for progressive display
     const visibleSnapshots = snapshots.slice(0, currentIndex + 1);
@@ -292,13 +296,14 @@ function PlaybackPage() {
     const currentPositionPlugin = {
         id: 'currentPosition',
         afterDraw: (chart) => {
-            if (!currentSnapshot) return;
+            const snapshot = currentSnapshotRef.current;
+            if (!snapshot) return;
 
             const ctx = chart.ctx;
             const xAxis = chart.scales.x;
             const yAxis = chart.scales.y1;
 
-            const currentTime = new Date(currentSnapshot.timestamp).getTime();
+            const currentTime = new Date(snapshot.timestamp).getTime();
             const x = xAxis.getPixelForValue(currentTime);
 
             if (x >= xAxis.left && x <= xAxis.right) {
@@ -315,7 +320,7 @@ function PlaybackPage() {
                 ctx.fillStyle = '#ff4d4f';
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
-                const date = new Date(currentSnapshot.timestamp);
+                const date = new Date(snapshot.timestamp);
                 const pad = n => n.toString().padStart(2, '0');
                 const timeLabel = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
                 ctx.fillText(timeLabel, x, yAxis.top - 8);
@@ -516,8 +521,8 @@ function PlaybackPage() {
                                     <button
                                         onClick={togglePlayback}
                                         className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg transition-all duration-200 ${isPlaying
-                                                ? 'bg-red-500 hover:bg-red-600 text-white'
-                                                : 'bg-green-500 hover:bg-green-600 text-white'
+                                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                                            : 'bg-green-500 hover:bg-green-600 text-white'
                                             }`}
                                     >
                                         {isPlaying ? '⏸' : '▶️'}

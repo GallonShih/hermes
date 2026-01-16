@@ -17,6 +17,7 @@ class ChatCollector:
         self.live_stream_id = live_stream_id
         self.chat_downloader = ChatDownloader()
         self.is_running = False
+        self.last_activity_time = None  # For watchdog monitoring
 
     def start_collection(self, url):
         """Start collecting chat messages from live stream"""
@@ -24,11 +25,15 @@ class ChatCollector:
         logger.info(f"URL: {url}")
 
         self.is_running = True
+        self.last_activity_time = time.time()  # Initialize heartbeat
 
         try:
             chat = self.chat_downloader.get_chat(url, message_groups=['all'])
 
             for message_data in chat:
+                # Update heartbeat on each iteration (even if message save fails)
+                self.last_activity_time = time.time()
+                
                 if not self.is_running:
                     logger.info("Chat collection stopped")
                     break
@@ -46,8 +51,13 @@ class ChatCollector:
     def _save_message(self, message_data):
         """Save a single chat message to database"""
         try:
-            # Create ChatMessage instance
+            # Create ChatMessage instance (may return None for unsupported message types)
             chat_message = ChatMessage.from_chat_data(message_data, self.live_stream_id)
+            
+            if chat_message is None:
+                # Skip messages that cannot be saved (e.g., ban_user, remove_chat_item)
+                logger.debug(f"Skipping unsupported message type: {message_data.get('action_type')}")
+                return
 
             # Extract values before session to avoid lazy loading issues
             message_id = chat_message.message_id

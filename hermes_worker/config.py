@@ -25,6 +25,10 @@ class Config:
     # Retry settings
     RETRY_MAX_ATTEMPTS = int(os.getenv('RETRY_MAX_ATTEMPTS', 3))
     RETRY_BACKOFF_SECONDS = int(os.getenv('RETRY_BACKOFF_SECONDS', 5))
+    
+    # Watchdog settings - restart chat collection if no activity for this duration
+    CHAT_WATCHDOG_TIMEOUT = int(os.getenv('CHAT_WATCHDOG_TIMEOUT', 300))  # 5 minutes default
+    CHAT_WATCHDOG_CHECK_INTERVAL = int(os.getenv('CHAT_WATCHDOG_CHECK_INTERVAL', 30))  # Check every 30s
 
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()

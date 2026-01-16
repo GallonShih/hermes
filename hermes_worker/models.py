@@ -29,17 +29,31 @@ class ChatMessage(Base):
 
     @classmethod
     def from_chat_data(cls, chat_data, live_stream_id):
-        """Create ChatMessage instance from chat-downloader data"""
+        """Create ChatMessage instance from chat-downloader data
+        
+        Returns None for messages that cannot be saved (e.g., missing required fields).
+        """
+        # Skip messages without timestamp (e.g., ban_user, remove_chat_item)
+        if 'timestamp' not in chat_data:
+            return None
+        
+        # Skip messages without author (e.g., viewer_engagement_message, system messages)
+        if 'author' not in chat_data:
+            return None
+        
         # Convert microsecond timestamp to timezone-aware datetime (UTC)
         published_at = datetime.datetime.fromtimestamp(
             chat_data['timestamp'] / 1000000.0,
             tz=datetime.timezone.utc
         )
+        
+        # Handle null/missing message content (use empty string for membership items, etc.)
+        message_content = chat_data.get('message') or ''
 
         return cls(
             message_id=chat_data['message_id'],
             live_stream_id=live_stream_id,
-            message=chat_data['message'],
+            message=message_content,
             timestamp=chat_data['timestamp'],
             published_at=published_at,
             author_name=chat_data['author']['name'],
