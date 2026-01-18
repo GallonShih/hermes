@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from collections import defaultdict
 import logging
 
 from app.core.database import get_db
@@ -11,6 +12,20 @@ from app.models import StreamStats, ChatMessage, CurrencyRate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/playback", tags=["playback"])
+
+
+def get_hour_bucket_key(dt: datetime) -> datetime:
+    """Get the start of the hour containing this datetime (for bucket key)."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.replace(minute=0, second=0, microsecond=0)
+
+
+def normalize_dt(dt: datetime) -> datetime:
+    """Normalize datetime to UTC for consistent comparison."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 @router.get("/snapshots")
@@ -27,8 +42,11 @@ def get_playback_snapshots(
     - timestamp: The time point
     - viewer_count: Concurrent viewers at this time (or nearest available)
     - hourly_messages: Message count in the hour containing this timestamp
-    - paid_message_count: Paid message count in the hour
-    - revenue_twd: Revenue in TWD for the hour
+    - paid_message_count: Cumulative paid message count from start
+    - revenue_twd: Cumulative revenue in TWD from start
+    
+    Time Complexity: O(n + s) where n = messages, s = snapshots
+    (Previously O(n × s) due to inner loop)
     """
     try:
         # Validate parameters
@@ -47,7 +65,6 @@ def get_playback_snapshots(
             raise HTTPException(status_code=400, detail="Time range cannot exceed 30 days")
         
         # Ensure timezone awareness (convert naive datetime to UTC)
-        from datetime import timezone
         if start_time.tzinfo is None:
             start_time = start_time.replace(tzinfo=timezone.utc)
         if end_time.tzinfo is None:
@@ -87,14 +104,6 @@ def get_playback_snapshots(
             key=lambda m: m.published_at
         )
         
-        # Helper to normalize datetime for comparison
-        # Convert all datetimes to UTC for consistent comparison
-        def normalize_dt(dt):
-            if dt.tzinfo is None:
-                # Assume naive datetimes are UTC
-                return dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
-        
         # Helper to calculate revenue for a message
         def get_message_revenue(msg):
             if msg.message_type != 'paid_message' or not msg.raw_data or 'money' not in msg.raw_data:
@@ -111,7 +120,14 @@ def get_playback_snapshots(
             except (ValueError, TypeError):
                 return 0.0
         
-        # Generate snapshots at each step
+        # ========== O(n) Pre-computation: Build hourly message buckets ==========
+        # This is for exact hour boundaries (e.g., 09:00:00)
+        hourly_buckets = defaultdict(int)
+        for msg in sorted_messages:
+            bucket_key = get_hour_bucket_key(msg.published_at)
+            hourly_buckets[bucket_key] += 1
+        
+        # ========== Generate snapshots at each step ==========
         snapshots = []
         current_time = start_time
         step_delta = timedelta(seconds=step_seconds)
@@ -119,7 +135,10 @@ def get_playback_snapshots(
         # Track cumulative values from start_time
         cumulative_paid_count = 0
         cumulative_revenue = 0.0
-        message_index = 0  # Track position in sorted messages
+        message_index = 0  # Track position in sorted messages for cumulative
+        hour_message_index = 0  # Track position for hourly counting
+        last_hour_start = None  # Track when we enter a new hour
+        hourly_message_count = 0  # Count messages in current partial hour
         
         while current_time <= end_time:
             # Find nearest viewer count
@@ -134,30 +153,45 @@ def get_playback_snapshots(
                 if get_time_diff(closest_stat) <= 600:
                     viewer_count = closest_stat.concurrent_viewers
             
-            # Calculate hourly_messages: from start of current hour to current_time
-            # Special case: if current_time is exactly on the hour boundary (e.g., 03:00:00),
-            # show the PREVIOUS hour's data instead (e.g., 02:00-03:00), otherwise it would be 0
-            hour_start = current_time.replace(minute=0, second=0, microsecond=0)
-            current_norm = normalize_dt(current_time)
-            hour_start_norm = normalize_dt(hour_start)
-            
-            # Check if we're exactly on the hour boundary
+            # ========== Calculate hourly_messages ==========
+            current_hour_key = get_hour_bucket_key(current_time)
             is_exact_hour = (current_time.minute == 0 and current_time.second == 0 and current_time.microsecond == 0)
             
             if is_exact_hour and current_time > start_time:
-                # Show previous hour's complete data
-                prev_hour_start = hour_start - timedelta(hours=1)
-                hour_start_norm = normalize_dt(prev_hour_start)
-                # current_norm stays as the hour boundary (end of previous hour)
-            
-            hourly_messages = 0
-            for msg in sorted_messages:
-                msg_time = normalize_dt(msg.published_at)
-                if msg_time >= hour_start_norm and msg_time < current_norm:
-                    hourly_messages += 1
+                # Exact hour boundary: Show previous hour's COMPLETE count (O(1) lookup)
+                prev_hour_key = current_hour_key - timedelta(hours=1)
+                hourly_messages = hourly_buckets.get(prev_hour_key, 0)
+            else:
+                # Mid-hour: Count messages from hour_start to current_time
+                # Reset counter when entering a new hour
+                if last_hour_start != current_hour_key:
+                    last_hour_start = current_hour_key
+                    hourly_message_count = 0
+                    # Find starting index for this hour
+                    hour_message_index = 0
+                    for i, msg in enumerate(sorted_messages):
+                        if get_hour_bucket_key(msg.published_at) >= current_hour_key:
+                            hour_message_index = i
+                            break
+                
+                # Count messages from hour_start to current_time
+                current_norm = normalize_dt(current_time)
+                while hour_message_index < len(sorted_messages):
+                    msg = sorted_messages[hour_message_index]
+                    msg_bucket = get_hour_bucket_key(msg.published_at)
+                    if msg_bucket != current_hour_key:
+                        break
+                    msg_time = normalize_dt(msg.published_at)
+                    if msg_time < current_norm:
+                        hourly_message_count += 1
+                        hour_message_index += 1
+                    else:
+                        break
+                
+                hourly_messages = hourly_message_count
             
             # Update cumulative values: count all messages from start_time to current_time
-            start_norm = normalize_dt(start_time)
+            current_norm = normalize_dt(current_time)
             while message_index < len(sorted_messages):
                 msg = sorted_messages[message_index]
                 msg_time = normalize_dt(msg.published_at)
