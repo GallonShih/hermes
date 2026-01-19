@@ -1,31 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    TimeScale,
-    PointElement,
-    LineElement,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
-import 'chartjs-adapter-date-fns';
 import { Link } from 'react-router-dom';
+import { registerChartComponents, hourGridPlugin } from '../utils/chartSetup';
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    TimeScale,
-    PointElement,
-    LineElement,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend
-);
+registerChartComponents();
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -177,15 +155,15 @@ function PlaybackPage() {
     };
 
     // Prepare viewer data (line chart)
-    const viewerData = visibleSnapshots
+    const viewerData = useMemo(() => visibleSnapshots
         .filter(s => s.viewer_count !== null)
         .map(s => ({
             x: new Date(s.timestamp).getTime(),
             y: s.viewer_count
-        }));
+        })), [visibleSnapshots]);
 
     // Prepare hourly message data (bar chart) - aggregate by hour
-    const hourlyMessageData = (() => {
+    const hourlyMessageData = useMemo(() => {
         const hourMap = {};
         visibleSnapshots.forEach(s => {
             const hourKey = new Date(s.timestamp);
@@ -201,10 +179,10 @@ function PlaybackPage() {
             x: parseInt(timestamp) + 30 * 60 * 1000,
             y: count
         }));
-    })();
+    }, [visibleSnapshots]);
 
     // Dual Axis Chart Config - matching Dashboard.jsx style
-    const chartData = {
+    const chartData = useMemo(() => ({
         datasets: [
             {
                 type: 'line',
@@ -249,7 +227,7 @@ function PlaybackPage() {
                 order: 2,
             },
         ],
-    };
+    }), [viewerData, hourlyMessageData]);
 
     // Get time range for chart
     const timeRange = snapshots.length > 0 ? {
@@ -258,42 +236,10 @@ function PlaybackPage() {
     } : { min: undefined, max: undefined };
 
     // Custom Plugin to draw Grid Lines at Top of Hour (matching Dashboard)
-    const hourGridPlugin = {
-        id: 'hourGrid',
-        beforeDraw: (chart) => {
-            const ctx = chart.ctx;
-            const xAxis = chart.scales.x;
-            const yAxis = chart.scales.y1;
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = '#e0e0e0';
-
-            const minTime = xAxis.min;
-            const maxTime = xAxis.max;
-
-            let currentTime = new Date(minTime);
-            if (currentTime.getMinutes() !== 0 || currentTime.getSeconds() !== 0 || currentTime.getMilliseconds() !== 0) {
-                currentTime.setHours(currentTime.getHours() + 1, 0, 0, 0);
-            }
-
-            while (currentTime.getTime() <= maxTime) {
-                const x = xAxis.getPixelForValue(currentTime.getTime());
-                if (x >= xAxis.left && x <= xAxis.right) {
-                    ctx.moveTo(x, xAxis.top);
-                    ctx.lineTo(x, xAxis.bottom);
-                }
-                currentTime.setTime(currentTime.getTime() + 60 * 60 * 1000);
-            }
-
-            ctx.stroke();
-            ctx.restore();
-        }
-    };
+    // imported from utils
 
     // Current position indicator plugin
-    const currentPositionPlugin = {
+    const currentPositionPlugin = useMemo(() => ({
         id: 'currentPosition',
         afterDraw: (chart) => {
             const snapshot = currentSnapshotRef.current;
@@ -328,9 +274,9 @@ function PlaybackPage() {
                 ctx.restore();
             }
         }
-    };
+    }), []); // Dependencies empty because it uses ref
 
-    const chartOptions = {
+    const chartOptions = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
@@ -391,7 +337,7 @@ function PlaybackPage() {
             },
         },
         animation: false,
-    };
+    }), [timeRange]);
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
