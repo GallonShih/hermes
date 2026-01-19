@@ -17,7 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class ChatCollector:
-    def __init__(self, live_stream_id):
+    def __init__(self, live_stream_id, register_signals=False):
+        """
+        Initialize ChatCollector.
+        
+        Args:
+            live_stream_id: The YouTube video ID to collect chat from
+            register_signals: If True, register signal handlers for graceful shutdown.
+                             Only set to True when running in main thread.
+                             Default is False to allow creation from non-main threads (e.g., watchdog).
+        """
         self.live_stream_id = live_stream_id
         self.chat_downloader = ChatDownloader()
         self.is_running = False
@@ -29,13 +38,25 @@ class ChatCollector:
         self._flush_interval = int(os.getenv('CHAT_FLUSH_INTERVAL', 5))
         self._last_flush = time.time()
         
-        # Register shutdown handlers for graceful shutdown
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
-        signal.signal(signal.SIGINT, self._handle_shutdown)
+        # Register shutdown handlers only from main thread
+        if register_signals:
+            self.register_signal_handlers()
+        
+        # Always register atexit handler (works from any thread)
         atexit.register(self._flush_buffer_sync)
         
         logger.info(f"ChatCollector initialized with buffer_size={self._buffer_size}, "
-                    f"flush_interval={self._flush_interval}s")
+                    f"flush_interval={self._flush_interval}s, signals={'registered' if register_signals else 'skipped'}")
+    
+    def register_signal_handlers(self):
+        """Register signal handlers for graceful shutdown. Must be called from main thread."""
+        try:
+            signal.signal(signal.SIGTERM, self._handle_shutdown)
+            signal.signal(signal.SIGINT, self._handle_shutdown)
+            logger.info("Signal handlers registered for graceful shutdown")
+        except ValueError as e:
+            # This happens when called from non-main thread
+            logger.warning(f"Could not register signal handlers (not main thread): {e}")
 
     def _handle_shutdown(self, signum, frame):
         """Handle shutdown signals gracefully."""
@@ -248,7 +269,7 @@ if __name__ == "__main__":
     url = sys.argv[1]
     video_id = extract_video_id_from_url(url)
 
-    collector = ChatCollector(video_id)
+    collector = ChatCollector(video_id, register_signals=True)
 
     try:
         collector.collect_with_retry(url, max_retries=Config.RETRY_MAX_ATTEMPTS, backoff_seconds=Config.RETRY_BACKOFF_SECONDS)

@@ -31,8 +31,8 @@ class HermesWorker:
 
         self.video_id = extract_video_id_from_url(self.youtube_url)
 
-        # Initialize components
-        self.chat_collector = ChatCollector(self.video_id)
+        # Initialize components (register_signals=True since we're in main thread)
+        self.chat_collector = ChatCollector(self.video_id, register_signals=True)
         self.stats_collector = StatsCollector()
 
         # Threading
@@ -218,9 +218,9 @@ class HermesWorker:
                         # Wait a moment for cleanup
                         time.sleep(2)
                         
-                        # Create new collector
+                        # Create new collector (no signal registration from non-main thread)
                         with self._restart_lock:
-                            self.chat_collector = ChatCollector(self.video_id)
+                            self.chat_collector = ChatCollector(self.video_id, register_signals=False)
                         
                         logger.info("Chat collector restarted by watchdog")
                         
@@ -242,8 +242,8 @@ class HermesWorker:
             self.youtube_url = new_url
             self.video_id = extract_video_id_from_url(new_url)
             
-            # Create new collectors
-            self.chat_collector = ChatCollector(self.video_id)
+            # Create new collectors (no signal registration from non-main thread)
+            self.chat_collector = ChatCollector(self.video_id, register_signals=False)
             self.stats_collector = StatsCollector()
             
             logger.info(f"Collectors restarted for new video: {self.video_id}")
