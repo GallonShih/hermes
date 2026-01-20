@@ -13,9 +13,42 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
     const [excludeWords, setExcludeWords] = useState([]);
     const [newExcludeWord, setNewExcludeWord] = useState('');
 
+    // Saved wordlists management
+    const [savedWordlists, setSavedWordlists] = useState([]);
+    const [selectedWordlistId, setSelectedWordlistId] = useState(null);
+    const [isModified, setIsModified] = useState(false);
+    const [loadingWordlists, setLoadingWordlists] = useState(false);
+
+    // Save modal state
+    const [showSaveModal, setShowSaveModal] = useState(false);
+    const [saveAsName, setSaveAsName] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+
     // Seed for reproducible layout
     const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
     const [seedInput, setSeedInput] = useState('');
+
+    // Fetch saved wordlists from API
+    const fetchSavedWordlists = useCallback(async () => {
+        setLoadingWordlists(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists`);
+            if (res.ok) {
+                const data = await res.json();
+                setSavedWordlists(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch saved wordlists', err);
+        } finally {
+            setLoadingWordlists(false);
+        }
+    }, []);
+
+    // Load wordlists on mount
+    useEffect(() => {
+        fetchSavedWordlists();
+    }, [fetchSavedWordlists]);
 
     const fetchWordFrequency = useCallback(async () => {
         setLoading(true);
@@ -73,12 +106,113 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         if (word && !excludeWords.includes(word)) {
             setExcludeWords([...excludeWords, word]);
             setNewExcludeWord('');
+            setIsModified(true);
         }
     };
 
     // Handle exclude word remove
     const handleRemoveExcludeWord = (word) => {
         setExcludeWords(excludeWords.filter(w => w !== word));
+        setIsModified(true);
+    };
+
+    // Load a saved wordlist
+    const handleLoadWordlist = async (wordlistId) => {
+        if (!wordlistId) {
+            setSelectedWordlistId(null);
+            setExcludeWords([]);
+            setIsModified(false);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists/${wordlistId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setExcludeWords(data.words || []);
+                setSelectedWordlistId(wordlistId);
+                setIsModified(false);
+            }
+        } catch (err) {
+            console.error('Failed to load wordlist', err);
+        }
+    };
+
+    // Save new wordlist
+    const handleSaveNew = async () => {
+        const name = saveAsName.trim();
+        if (!name) {
+            setSaveError('請輸入名稱');
+            return;
+        }
+
+        setSaving(true);
+        setSaveError('');
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, words: excludeWords })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || '儲存失敗');
+            }
+
+            const data = await res.json();
+            await fetchSavedWordlists();
+            setSelectedWordlistId(data.id);
+            setIsModified(false);
+            setShowSaveModal(false);
+            setSaveAsName('');
+        } catch (err) {
+            setSaveError(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Update existing wordlist
+    const handleUpdateWordlist = async () => {
+        if (!selectedWordlistId) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists/${selectedWordlistId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ words: excludeWords })
+            });
+
+            if (res.ok) {
+                await fetchSavedWordlists();
+                setIsModified(false);
+            }
+        } catch (err) {
+            console.error('Failed to update wordlist', err);
+        }
+    };
+
+    // Delete wordlist
+    const handleDeleteWordlist = async () => {
+        if (!selectedWordlistId) return;
+        if (!window.confirm('確定要刪除此清單？')) return;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists/${selectedWordlistId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                await fetchSavedWordlists();
+                setSelectedWordlistId(null);
+                setExcludeWords([]);
+                setIsModified(false);
+            }
+        } catch (err) {
+            console.error('Failed to delete wordlist', err);
+        }
     };
 
     // Random redraw with new seed
@@ -147,8 +281,52 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         return rng() > 0.7 ? 90 : 0;
     }, [seed, createSeededRandom]);
 
+    // Get current wordlist name
+    const currentWordlistName = useMemo(() => {
+        if (!selectedWordlistId) return null;
+        const wl = savedWordlists.find(w => w.id === selectedWordlistId);
+        return wl ? wl.name : null;
+    }, [selectedWordlistId, savedWordlists]);
+
     return (
         <div className="bg-white p-6 rounded-lg shadow-md mt-6">
+            {/* Save Modal */}
+            {showSaveModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+                        <h3 className="text-lg font-bold mb-4">儲存排除詞彙清單</h3>
+                        <input
+                            type="text"
+                            value={saveAsName}
+                            onChange={(e) => setSaveAsName(e.target.value)}
+                            placeholder="輸入清單名稱..."
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveNew()}
+                        />
+                        {saveError && (
+                            <div className="text-red-500 text-sm mb-2">{saveError}</div>
+                        )}
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button
+                                onClick={() => { setShowSaveModal(false); setSaveAsName(''); setSaveError(''); }}
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                disabled={saving}
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleSaveNew}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold disabled:opacity-50"
+                                disabled={saving}
+                            >
+                                {saving ? '儲存中...' : '儲存'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex flex-wrap justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800">☁️ 文字雲</h2>
@@ -171,8 +349,14 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
             {/* Word Cloud + Word List Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
                 {/* Word Cloud Area - 3/4 width */}
-                <div className="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50" style={{ minHeight: '400px' }}>
-                    {loading ? (
+                <div className="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50 relative" style={{ minHeight: '400px' }}>
+                    {loading && wordData.length > 0 && (
+                        <div className="absolute inset-0 bg-white bg-opacity-60 flex items-center justify-center z-10 transition-opacity duration-300 rounded-lg">
+                            <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-blue-500"></div>
+                        </div>
+                    )}
+
+                    {loading && wordData.length === 0 ? (
                         <div className="flex items-center justify-center h-[400px] text-gray-500">
                             載入中...
                         </div>
@@ -228,6 +412,7 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                                         onClick={() => {
                                             if (!excludeWords.includes(word.text)) {
                                                 setExcludeWords([...excludeWords, word.text]);
+                                                setIsModified(true);
                                             }
                                         }}
                                         className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity"
@@ -289,7 +474,55 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
 
                 {/* Right: Exclude words */}
                 <div>
-                    <div className="text-sm font-semibold text-gray-700 mb-2">排除詞彙</div>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-semibold text-gray-700">
+                            排除詞彙
+                            {currentWordlistName && (
+                                <span className="ml-2 text-blue-600 font-normal">
+                                    ({currentWordlistName}{isModified && ' - 已修改'})
+                                </span>
+                            )}
+                        </div>
+                        {/* Wordlist controls */}
+                        <div className="flex items-center gap-1">
+                            <select
+                                value={selectedWordlistId || ''}
+                                onChange={(e) => handleLoadWordlist(e.target.value ? parseInt(e.target.value) : null)}
+                                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                disabled={loadingWordlists}
+                            >
+                                <option value="">⛔️ 不使用清單 (清空)</option>
+                                {savedWordlists.map(wl => (
+                                    <option key={wl.id} value={wl.id}>{wl.name}</option>
+                                ))}
+                            </select>
+                            {selectedWordlistId && isModified && (
+                                <button
+                                    onClick={handleUpdateWordlist}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-medium"
+                                    title="更新清單"
+                                >
+                                    更新
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowSaveModal(true)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium"
+                                title="另存新清單"
+                            >
+                                💾 另存
+                            </button>
+                            {selectedWordlistId && (
+                                <button
+                                    onClick={handleDeleteWordlist}
+                                    className="bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-2 py-1 rounded text-xs font-medium flex items-center gap-1"
+                                    title="刪除此清單"
+                                >
+                                    🗑️ 刪除
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex items-center gap-2 mb-2">
                         <input
                             type="text"

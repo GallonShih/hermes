@@ -7,7 +7,8 @@ from sqlalchemy.orm import sessionmaker
 from app.models import (
     Base, ChatMessage, StreamStats, 
     ReplaceWord, SpecialWord,
-    PendingReplaceWord, PendingSpecialWord, CurrencyRate
+    PendingReplaceWord, PendingSpecialWord, CurrencyRate,
+    ExclusionWordlist
 )
 from app.core.database import get_db
 from main import app

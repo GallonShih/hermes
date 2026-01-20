@@ -174,3 +174,17 @@ class SystemSetting(Base):
 
     def __repr__(self):
         return f"<SystemSetting(key={self.key}, value={self.value})>"
+
+
+class ExclusionWordlist(Base):
+    __tablename__ = 'exclusion_wordlists'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    words = Column(JSON, nullable=False)  # Array of strings
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<ExclusionWordlist(id={self.id}, name={self.name}, words_count={len(self.words) if self.words else 0})>"
+
