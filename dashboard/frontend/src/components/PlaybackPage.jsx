@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Chart } from 'react-chartjs-2';
 import { Link } from 'react-router-dom';
 import { registerChartComponents, hourGridPlugin } from '../utils/chartSetup';
+import DynamicWordCloud from './DynamicWordCloud';
 
 registerChartComponents();
 
@@ -92,6 +93,16 @@ function PlaybackPage() {
     const playIntervalRef = useRef(null);
     const currentSnapshotRef = useRef(null);
 
+    // Word cloud state
+    const [wordcloudSnapshots, setWordcloudSnapshots] = useState([]);
+    const [windowHours, setWindowHours] = useState(4);
+    const [wordLimit, setWordLimit] = useState(30);
+    const [selectedWordlistId, setSelectedWordlistId] = useState(null);
+    const [savedWordlists, setSavedWordlists] = useState([]);
+    const [loadingWordlists, setLoadingWordlists] = useState(false);
+    const [wordcloudLoading, setWordcloudLoading] = useState(false);
+    const [wordcloudError, setWordcloudError] = useState(null);
+
     // Step options
     const stepOptions = [
         { value: 60, label: '1 分鐘' },
@@ -108,6 +119,43 @@ function PlaybackPage() {
         { value: 0.5, label: '2x' },
         { value: 0.25, label: '4x' },
     ];
+
+    // Window hours options
+    const windowHoursOptions = [
+        { value: 1, label: '1 小時' },
+        { value: 4, label: '4 小時' },
+        { value: 8, label: '8 小時' },
+        { value: 12, label: '12 小時' },
+        { value: 24, label: '24 小時' },
+    ];
+
+    // Word limit options
+    const wordLimitOptions = [
+        { value: 10, label: '10' },
+        { value: 20, label: '20' },
+        { value: 30, label: '30' },
+        { value: 50, label: '50' },
+        { value: 100, label: '100' },
+    ];
+
+    // Fetch saved wordlists on mount
+    useEffect(() => {
+        const fetchWordlists = async () => {
+            setLoadingWordlists(true);
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setSavedWordlists(data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch wordlists', err);
+            } finally {
+                setLoadingWordlists(false);
+            }
+        };
+        fetchWordlists();
+    }, []);
 
     // Fetch snapshots
     const loadSnapshots = async () => {
@@ -146,6 +194,51 @@ function PlaybackPage() {
             setError(err.message);
         } finally {
             setIsLoading(false);
+            // Also load word cloud data
+            loadWordcloudSnapshots();
+        }
+    };
+
+    // Load word cloud snapshots
+    const loadWordcloudSnapshots = async () => {
+        if (!startDate || !endDate) {
+            setWordcloudError('請先設定時間範圍');
+            return;
+        }
+
+        setWordcloudLoading(true);
+        setWordcloudError(null);
+
+        try {
+            const startIso = new Date(startDate).toISOString();
+            const endIso = new Date(endDate).toISOString();
+
+            const params = new URLSearchParams({
+                start_time: startIso,
+                end_time: endIso,
+                step_seconds: stepSeconds.toString(),
+                window_hours: windowHours.toString(),
+                word_limit: wordLimit.toString()
+            });
+
+            if (selectedWordlistId) {
+                params.append('wordlist_id', selectedWordlistId.toString());
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/playback/word-frequency-snapshots?${params}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            setWordcloudSnapshots(data.snapshots);
+        } catch (err) {
+            console.error('Error loading wordcloud snapshots:', err);
+            setWordcloudError(err.message);
+        } finally {
+            setWordcloudLoading(false);
         }
     };
 
@@ -189,6 +282,9 @@ function PlaybackPage() {
 
     // Get data up to current index for progressive display
     const visibleSnapshots = snapshots.slice(0, currentIndex + 1);
+
+    // Get current wordcloud words
+    const currentWordcloudWords = wordcloudSnapshots[currentIndex]?.words || [];
 
     // Format helpers
     const formatNumber = (num) => {
@@ -465,6 +561,7 @@ function PlaybackPage() {
                                 label="開始時間"
                                 value={startDate}
                                 onChange={setStartDate}
+                                max={formatLocalHour(new Date())}
                             />
                         </div>
 
@@ -515,6 +612,72 @@ function PlaybackPage() {
                             >
                                 {isLoading ? '載入中...' : '📥 載入資料'}
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Divider and Word Cloud Settings Section */}
+                    <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-200">
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <div className="flex items-center gap-2 mb-4">
+                                <span className="text-xl">☁️</span>
+                                <h3 className="text-base font-bold text-slate-700">文字雲進階設定 (下列選項僅影響文字雲顯示)</h3>
+                            </div>
+
+                            <div className="grid grid-cols-12 gap-4">
+
+
+                                {/* Word Cloud: Window Hours */}
+                                <div className="col-span-12 md:col-span-6 lg:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">統計窗口</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        value={windowHours}
+                                        onChange={(e) => setWindowHours(Number(e.target.value))}
+                                    >
+                                        {windowHoursOptions.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Word Cloud: Word Limit */}
+                                <div className="col-span-12 md:col-span-6 lg:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">顯示詞數</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        value={wordLimit}
+                                        onChange={(e) => setWordLimit(Number(e.target.value))}
+                                    >
+                                        {wordLimitOptions.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Word Cloud: Exclusion Wordlist */}
+                                <div className="col-span-12 md:col-span-12 lg:col-span-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">排除清單</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        value={selectedWordlistId || ''}
+                                        onChange={(e) => setSelectedWordlistId(e.target.value ? parseInt(e.target.value) : null)}
+                                        disabled={loadingWordlists}
+                                    >
+                                        <option value="">⛔️ 不使用清單</option>
+                                        {savedWordlists.map(wl => (
+                                            <option key={wl.id} value={wl.id}>{wl.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Empty space to align with Load button above if needed, or just let it flow */}
+                                <div className="col-span-12 md:col-span-4 lg:col-span-4">
+                                    {/* Placeholder or extra description */}
+                                    <p className="text-xs text-gray-400 mt-6">
+                                        * 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -623,6 +786,42 @@ function PlaybackPage() {
                                 <div className="text-4xl font-bold text-amber-900">
                                     {formatCurrency(currentSnapshot?.revenue_twd)}
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Dynamic Word Cloud */}
+                        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                            <h3 className="text-lg font-bold text-gray-800 mb-4">☁️ 動態文字雲</h3>
+
+                            {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                <div className="h-[500px] flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
+                                </div>
+                            ) : wordcloudError ? (
+                                <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-2xl border border-red-200 text-red-600">
+                                    ⚠️ {wordcloudError}
+                                </div>
+                            ) : (
+                                <DynamicWordCloud
+                                    words={currentWordcloudWords}
+                                    width={900}
+                                    height={500}
+                                    wordLimit={wordLimit}
+                                />
+                            )}
+
+                            <div className="mt-2 text-center text-sm text-gray-500">
+                                當前統計區間: {
+                                    currentSnapshot
+                                        ? (() => {
+                                            const end = new Date(currentSnapshot.timestamp);
+                                            const start = new Date(end.getTime() - windowHours * 60 * 60 * 1000);
+                                            const pad = n => n.toString().padStart(2, '0');
+                                            const fmt = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                                            return `${fmt(start)} - ${fmt(end)}`;
+                                        })()
+                                        : '--:-- - --:--'
+                                }
                             </div>
                         </div>
                     </>
