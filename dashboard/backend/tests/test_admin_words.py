@@ -205,3 +205,33 @@ def test_add_special_word_duplicate(client, sample_special_words):
     assert response.status_code == 200
     data = response.json()
     assert data["success"] == False
+
+def test_clear_pending_replace_words(client, sample_pending_replace_words):
+    response = client.post("/api/admin/clear-pending-replace-words", json={
+        "reviewed_by": "test_admin",
+        "notes": "Cleared all"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] == True
+    assert data["count"] == 5
+    
+    # Verify all are rejected
+    response = client.get("/api/admin/pending-replace-words")
+    data = response.json()
+    assert data["total"] == 0
+
+def test_clear_pending_special_words(client, sample_pending_special_words):
+    response = client.post("/api/admin/clear-pending-special-words", json={
+        "reviewed_by": "test_admin",
+        "notes": "Cleared all"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] == True
+    assert data["count"] == 5
+    
+    # Verify all are rejected
+    response = client.get("/api/admin/pending-special-words")
+    data = response.json()
+    assert data["total"] == 0

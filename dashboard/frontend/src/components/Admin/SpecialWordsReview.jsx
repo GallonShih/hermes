@@ -78,13 +78,25 @@ const SpecialWordsReview = () => {
 
     const confirmAction = (action, id = null) => {
         const ids = id ? [id] : selectedIds;
-        if (ids.length === 0) return;
+        if (action !== 'clear' && ids.length === 0) return;
+
+        let title, message, isDestructive;
+
+        if (action === 'clear') {
+            title = 'Clear All Pending';
+            message = 'Are you sure you want to REJECT ALL pending special words? This action cannot be undone.';
+            isDestructive = true;
+        } else {
+            title = action === 'approve' ? 'Approve Items' : 'Reject Items';
+            message = `Are you sure you want to ${action} ${ids.length} item(s)?`;
+            isDestructive = action === 'reject';
+        }
 
         setModalConfig({
             isOpen: true,
-            title: action === 'approve' ? 'Approve Items' : 'Reject Items',
-            message: `Are you sure you want to ${action} ${ids.length} item(s)?`,
-            isDestructive: action === 'reject',
+            title,
+            message,
+            isDestructive,
             onConfirm: () => {
                 executeAction(action, id);
                 setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -126,7 +138,12 @@ const SpecialWordsReview = () => {
                /api/admin/batch-reject-special-words
             */
 
-            if (id) {
+            if (action === 'clear') {
+                // Clear all action
+                url = `${API_BASE_URL}/api/admin/clear-pending-special-words`;
+                method = 'POST';
+                body = JSON.stringify({ reviewed_by: 'admin' });
+            } else if (id) {
                 // Single item action
                 url = `${API_BASE_URL}/api/admin/${action}-special-word/${id}`;
                 method = 'POST';
@@ -262,6 +279,12 @@ const SpecialWordsReview = () => {
                         onClick={() => confirmAction('reject')}
                     >
                         Reject Selected ({selectedIds.length})
+                    </button>
+                    <button
+                        className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900"
+                        onClick={() => confirmAction('clear')}
+                    >
+                        🗑️ Clear All
                     </button>
                 </div>
                 <div>

@@ -492,6 +492,35 @@ def batch_reject_replace_words(
         logger.error(f"Error batch rejecting replace words: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/clear-pending-replace-words")
+def clear_pending_replace_words(
+    reviewed_by: str = Body('admin'),
+    notes: str = Body(''),
+    db: Session = Depends(get_db)
+):
+    try:
+        result = db.query(PendingReplaceWord).filter(
+            PendingReplaceWord.status == 'pending'
+        ).update({
+            "status": 'rejected',
+            "reviewed_at": func.now(),
+            "reviewed_by": reviewed_by,
+            "notes": notes
+        }, synchronize_session=False)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Cleared {result} pending replace words",
+            "count": result
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error clearing pending replace words: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/statistics")
 def get_admin_statistics(db: Session = Depends(get_db)):
     try:
@@ -652,6 +681,35 @@ def batch_reject_special_words(
     except Exception as e:
         db.rollback()
         logger.error(f"Error batch rejecting special words: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clear-pending-special-words")
+def clear_pending_special_words(
+    reviewed_by: str = Body('admin'),
+    notes: str = Body(''),
+    db: Session = Depends(get_db)
+):
+    try:
+        result = db.query(PendingSpecialWord).filter(
+            PendingSpecialWord.status == 'pending'
+        ).update({
+            "status": 'rejected',
+            "reviewed_at": func.now(),
+            "reviewed_by": reviewed_by,
+            "notes": notes
+        }, synchronize_session=False)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Cleared {result} pending special words",
+            "count": result
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error clearing pending special words: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/add-replace-word")

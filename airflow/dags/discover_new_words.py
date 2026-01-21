@@ -503,7 +503,8 @@ def save_discoveries(**context):
                         pending_replace_words.example_messages || EXCLUDED.example_messages
                     ) LIMIT 5
                 ),
-                confidence_score = GREATEST(pending_replace_words.confidence_score, EXCLUDED.confidence_score);
+                confidence_score = GREATEST(pending_replace_words.confidence_score, EXCLUDED.confidence_score),
+                status = 'pending';
         """
         pg_hook.run(
             upsert_sql,
@@ -555,7 +556,8 @@ def save_discoveries(**context):
                         pending_special_words.example_messages || EXCLUDED.example_messages
                     ) LIMIT 5
                 ),
-                confidence_score = GREATEST(pending_special_words.confidence_score, EXCLUDED.confidence_score);
+                confidence_score = GREATEST(pending_special_words.confidence_score, EXCLUDED.confidence_score),
+                status = 'pending';
         """
         pg_hook.run(
             upsert_sql,
