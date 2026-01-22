@@ -3,7 +3,7 @@ import logging
 
 from app.core.config import setup_cors
 from app.core.database import get_db_manager
-from app.routers import stats, chat, admin_words, admin_currency, admin_settings, wordcloud, playback, exclusion_wordlist, playback_wordcloud
+from app.routers import stats, chat, admin_words, admin_currency, admin_settings, wordcloud, playback, exclusion_wordlist, playback_wordcloud, text_mining
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,3 +36,4 @@ app.include_router(wordcloud.router)
 app.include_router(playback.router)
 app.include_router(exclusion_wordlist.router)
 app.include_router(playback_wordcloud.router)
+app.include_router(text_mining.router)

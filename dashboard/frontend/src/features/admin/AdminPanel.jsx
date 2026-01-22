@@ -4,6 +4,7 @@ import ReplaceWordsReview from './ReplaceWordsReview';
 import SpecialWordsReview from './SpecialWordsReview';
 import CurrencyRateManager from './CurrencyRateManager';
 import SettingsManager from './SettingsManager';
+import TextMining from './TextMining';
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState('replace');
@@ -74,6 +75,15 @@ const AdminPanel = () => {
                         >
                             Settings ⚙️
                         </button>
+                        <button
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'textmining'
+                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
+                            onClick={() => setActiveTab('textmining')}
+                        >
+                            Text Mining 🔍
+                        </button>
                     </div>
 
                     <div className="p-6">
@@ -81,6 +91,7 @@ const AdminPanel = () => {
                         {activeTab === 'special' && <SpecialWordsReview />}
                         {activeTab === 'currency' && <CurrencyRateManager />}
                         {activeTab === 'settings' && <SettingsManager />}
+                        {activeTab === 'textmining' && <TextMining />}
                     </div>
                 </div>
             </div>
