@@ -1,78 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { Link } from 'react-router-dom';
-import { registerChartComponents, hourGridPlugin } from '../utils/chartSetup';
-import DynamicWordCloud from './DynamicWordCloud';
+import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
+import DynamicWordCloud from '../../components/common/DynamicWordCloud';
+import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
+import { formatNumber, formatCurrency, formatTimestamp, formatLocalHour } from '../../utils/formatters';
+import { usePlayback } from '../../hooks/usePlayback';
+import { useWordlists } from '../../hooks/useWordlists';
 
 registerChartComponents();
-
-const API_BASE_URL = 'http://localhost:8000';
-
-const DateTimeHourSelector = ({ label, value, onChange, max }) => {
-    const datePart = value ? value.split('T')[0] : '';
-    const hourPart = value ? value.split('T')[1]?.substring(0, 2) : '00';
-    const maxDate = max ? max.split('T')[0] : undefined;
-
-    const allHours = useMemo(() => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')), []);
-
-    const availableHours = useMemo(() => {
-        if (!max || !datePart) return allHours;
-        if (datePart < maxDate) return allHours;
-        if (datePart === maxDate) {
-            const maxHour = parseInt(max.split('T')[1].substring(0, 2), 10);
-            return allHours.filter(h => parseInt(h, 10) <= maxHour);
-        }
-        return [];
-    }, [max, datePart, maxDate, allHours]);
-
-    const handleDateChange = (e) => {
-        const newDate = e.target.value;
-        if (!newDate) {
-            onChange('');
-            return;
-        }
-        let newHour = hourPart;
-        // If date changes to maxDate, ensure hour is within limit
-        if (max && newDate === maxDate) {
-            const maxHourStr = max.split('T')[1].substring(0, 2);
-            if (parseInt(newHour, 10) > parseInt(maxHourStr, 10)) {
-                newHour = maxHourStr;
-            }
-        }
-        onChange(`${newDate}T${newHour}:00`);
-    };
-
-    const handleHourChange = (e) => {
-        const newHour = e.target.value;
-        if (!datePart) return;
-        onChange(`${datePart}T${newHour}:00`);
-    };
-
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-            <div className="flex gap-2">
-                <input
-                    type="date"
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={datePart}
-                    onChange={handleDateChange}
-                    max={maxDate}
-                />
-                <select
-                    className="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={hourPart}
-                    onChange={handleHourChange}
-                    disabled={!datePart}
-                >
-                    {availableHours.map(h => (
-                        <option key={h} value={h}>{h}:00</option>
-                    ))}
-                </select>
-            </div>
-        </div>
-    );
-};
 
 function PlaybackPage() {
     // Configuration state
@@ -81,27 +17,34 @@ function PlaybackPage() {
     const [stepSeconds, setStepSeconds] = useState(300); // 5 minutes default
     const [playbackSpeed, setPlaybackSpeed] = useState(1); // seconds per step
 
-    // Playback state
-    const [snapshots, setSnapshots] = useState([]);
-    const [metadata, setMetadata] = useState(null);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
+    // Hooks
+    const {
+        snapshots,
+        metadata,
+        currentIndex,
+        setCurrentIndex,
+        isPlaying,
+        setIsPlaying,
+        isLoading,
+        error,
+        wordcloudSnapshots,
+        wordcloudLoading,
+        wordcloudError,
+        loadSnapshots,
+        loadWordcloudSnapshots,
+        togglePlayback
+    } = usePlayback();
 
-    // Refs for playback control
-    const playIntervalRef = useRef(null);
-    const currentSnapshotRef = useRef(null);
+    const { savedWordlists, loading: loadingWordlists } = useWordlists();
 
-    // Word cloud state
-    const [wordcloudSnapshots, setWordcloudSnapshots] = useState([]);
+    // Word cloud config state
     const [windowHours, setWindowHours] = useState(4);
     const [wordLimit, setWordLimit] = useState(30);
     const [selectedWordlistId, setSelectedWordlistId] = useState(null);
-    const [savedWordlists, setSavedWordlists] = useState([]);
-    const [loadingWordlists, setLoadingWordlists] = useState(false);
-    const [wordcloudLoading, setWordcloudLoading] = useState(false);
-    const [wordcloudError, setWordcloudError] = useState(null);
+
+    // Refs
+    const playIntervalRef = useRef(null);
+    const currentSnapshotRef = useRef(null);
 
     // Step options
     const stepOptions = [
@@ -112,7 +55,7 @@ function PlaybackPage() {
         { value: 3600, label: '1 小時' },
     ];
 
-    // Speed options (seconds per step)
+    // Speed options
     const speedOptions = [
         { value: 2, label: '0.5x' },
         { value: 1, label: '1x' },
@@ -138,117 +81,22 @@ function PlaybackPage() {
         { value: 100, label: '100' },
     ];
 
-    // Fetch saved wordlists on mount
-    useEffect(() => {
-        const fetchWordlists = async () => {
-            setLoadingWordlists(true);
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/exclusion-wordlists`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setSavedWordlists(data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch wordlists', err);
-            } finally {
-                setLoadingWordlists(false);
-            }
-        };
-        fetchWordlists();
-    }, []);
+    // Handle load button
+    const handleLoad = async () => {
+        if (!startDate || !endDate) return;
 
-    // Fetch snapshots
-    const loadSnapshots = async () => {
-        if (!startDate || !endDate) {
-            setError('請選擇開始和結束時間');
-            return;
-        }
-
-        setIsLoading(true);
-        setError(null);
-        setIsPlaying(false);
-
-        try {
-            const startIso = new Date(startDate).toISOString();
-            const endIso = new Date(endDate).toISOString();
-
-            const params = new URLSearchParams({
-                start_time: startIso,
-                end_time: endIso,
-                step_seconds: stepSeconds.toString()
-            });
-
-            const response = await fetch(`${API_BASE_URL}/api/playback/snapshots?${params}`);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            setSnapshots(data.snapshots);
-            setMetadata(data.metadata);
-            setCurrentIndex(0);
-        } catch (err) {
-            console.error('Error loading snapshots:', err);
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-            // Also load word cloud data
-            loadWordcloudSnapshots();
-        }
+        await loadSnapshots({ startDate, endDate, stepSeconds });
+        await loadWordcloudSnapshots({
+            startDate,
+            endDate,
+            stepSeconds,
+            windowHours,
+            wordLimit,
+            wordlistId: selectedWordlistId
+        });
     };
 
-    // Load word cloud snapshots
-    const loadWordcloudSnapshots = async () => {
-        if (!startDate || !endDate) {
-            setWordcloudError('請先設定時間範圍');
-            return;
-        }
-
-        setWordcloudLoading(true);
-        setWordcloudError(null);
-
-        try {
-            const startIso = new Date(startDate).toISOString();
-            const endIso = new Date(endDate).toISOString();
-
-            const params = new URLSearchParams({
-                start_time: startIso,
-                end_time: endIso,
-                step_seconds: stepSeconds.toString(),
-                window_hours: windowHours.toString(),
-                word_limit: wordLimit.toString()
-            });
-
-            if (selectedWordlistId) {
-                params.append('wordlist_id', selectedWordlistId.toString());
-            }
-
-            const response = await fetch(`${API_BASE_URL}/api/playback/word-frequency-snapshots?${params}`);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            setWordcloudSnapshots(data.snapshots);
-        } catch (err) {
-            console.error('Error loading wordcloud snapshots:', err);
-            setWordcloudError(err.message);
-        } finally {
-            setWordcloudLoading(false);
-        }
-    };
-
-    // Playback control
-    const togglePlayback = useCallback(() => {
-        if (snapshots.length === 0) return;
-        setIsPlaying(prev => !prev);
-    }, [snapshots.length]);
-
-    // Handle playback
+    // Handle playback interval
     useEffect(() => {
         if (isPlaying && snapshots.length > 0) {
             playIntervalRef.current = setInterval(() => {
@@ -272,51 +120,18 @@ function PlaybackPage() {
                 clearInterval(playIntervalRef.current);
             }
         };
-    }, [isPlaying, playbackSpeed, snapshots.length]);
+    }, [isPlaying, playbackSpeed, snapshots.length, setCurrentIndex, setIsPlaying]);
 
     // Current snapshot data
     const currentSnapshot = snapshots[currentIndex] || null;
-
-    // Keep ref in sync for plugin access
     currentSnapshotRef.current = currentSnapshot;
 
-    // Get data up to current index for progressive display
+    // Derived data
     const visibleSnapshots = snapshots.slice(0, currentIndex + 1);
-
-    // Get current wordcloud words
     const currentWordcloudWords = wordcloudSnapshots[currentIndex]?.words || [];
 
-    // Format helpers
-    const formatNumber = (num) => {
-        if (num === null || num === undefined) return '--';
-        return new Intl.NumberFormat('zh-TW').format(num);
-    };
-
-    const formatCurrency = (amount) => {
-        if (amount === null || amount === undefined) return '--';
-        return new Intl.NumberFormat('zh-TW', {
-            style: 'currency',
-            currency: 'TWD',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    };
-
-    const formatTimestamp = (isoString) => {
-        if (!isoString) return '--';
-        const date = new Date(isoString);
-        const pad = (n) => n.toString().padStart(2, '0');
-        return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-    };
-
-    const formatLocalHour = (date) => {
-        const d = new Date(date);
-        d.setMinutes(0, 0, 0);
-        const pad = (n) => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
-    };
-
-    // Prepare viewer data (line chart)
+    // Prepare charts data
+    // Viewer Data
     const viewerData = useMemo(() => visibleSnapshots
         .filter(s => s.viewer_count !== null)
         .map(s => ({
@@ -324,33 +139,27 @@ function PlaybackPage() {
             y: s.viewer_count
         })), [visibleSnapshots]);
 
-    // Prepare hourly message data (bar chart) - aggregate by hour
+    // Hourly Message Data
     const hourlyMessageData = useMemo(() => {
         const hourMap = {};
         visibleSnapshots.forEach(s => {
             const date = new Date(s.timestamp);
-
-            // If strictly on the hour (00:00), shift to previous hour
             if (date.getMinutes() === 0 && date.getSeconds() === 0) {
                 date.setHours(date.getHours() - 1);
             }
-
             date.setMinutes(0, 0, 0);
             const key = date.getTime();
-
-            // Use the max message count for that hour
             if (!hourMap[key] || s.hourly_messages > hourMap[key]) {
                 hourMap[key] = s.hourly_messages;
             }
         });
         return Object.entries(hourMap).map(([timestamp, count]) => ({
-            // Center bar in hour slot (add 30 minutes)
             x: parseInt(timestamp) + 30 * 60 * 1000,
             y: count
         }));
     }, [visibleSnapshots]);
 
-    // Dual Axis Chart Config - matching Dashboard.jsx style
+    // Chart Data
     const chartData = useMemo(() => ({
         datasets: [
             {
@@ -386,9 +195,7 @@ function PlaybackPage() {
                 backgroundColor: (ctx) => {
                     if (!hourlyMessageData.length || !ctx.raw) return '#91cc75';
                     const maxX = hourlyMessageData[hourlyMessageData.length - 1]?.x;
-                    if (ctx.raw.x === maxX) {
-                        return '#ff4d4f';
-                    }
+                    if (ctx.raw.x === maxX) return '#ff4d4f';
                     return '#91cc75';
                 },
                 borderWidth: 1,
@@ -398,7 +205,7 @@ function PlaybackPage() {
         ],
     }), [viewerData, hourlyMessageData]);
 
-    // Calculate max values for Y-axis scaling (stable validation across playback)
+    // Max values
     const { maxViewerCount, maxMessageCount } = useMemo(() => {
         if (!snapshots.length) return { maxViewerCount: 0, maxMessageCount: 0 };
         const maxV = Math.max(...snapshots.map(s => s.viewer_count || 0));
@@ -406,16 +213,13 @@ function PlaybackPage() {
         return { maxViewerCount: maxV, maxMessageCount: maxM };
     }, [snapshots]);
 
-    // Get time range for chart
+    // Time range
     const timeRange = snapshots.length > 0 ? {
         min: new Date(snapshots[0].timestamp).getTime(),
         max: new Date(snapshots[snapshots.length - 1].timestamp).getTime()
     } : { min: undefined, max: undefined };
 
-    // Custom Plugin to draw Grid Lines at Top of Hour (matching Dashboard)
-    // imported from utils
-
-    // Current position indicator plugin
+    // Plugins
     const currentPositionPlugin = useMemo(() => ({
         id: 'currentPosition',
         afterDraw: (chart) => {
@@ -439,7 +243,6 @@ function PlaybackPage() {
                 ctx.lineTo(x, yAxis.bottom);
                 ctx.stroke();
 
-                // Draw time label at top
                 ctx.fillStyle = '#ff4d4f';
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
@@ -451,16 +254,13 @@ function PlaybackPage() {
                 ctx.restore();
             }
         }
-    }), []); // Dependencies empty because it uses ref
+    }), []);
 
+    // Chart options
     const chartOptions = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
-        interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false,
-        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false },
         plugins: {
             legend: { position: 'top' },
             title: { display: true, text: 'Playback Analytics' },
@@ -484,14 +284,8 @@ function PlaybackPage() {
         scales: {
             x: {
                 type: 'time',
-                time: {
-                    unit: 'hour',
-                    displayFormats: { hour: 'MM/dd HH:mm' }
-                },
-                ticks: {
-                    source: 'auto',
-                    autoSkip: false
-                },
+                time: { unit: 'hour', displayFormats: { hour: 'MM/dd HH:mm' } },
+                ticks: { source: 'auto', autoSkip: false },
                 min: timeRange.min,
                 max: timeRange.max,
                 grid: { display: false },
@@ -503,7 +297,7 @@ function PlaybackPage() {
                 title: { display: true, text: 'Viewers' },
                 grid: { display: true },
                 beginAtZero: true,
-                suggestedMax: maxViewerCount * 1.1, // Add 10% padding
+                suggestedMax: maxViewerCount * 1.1,
             },
             y2: {
                 type: 'linear',
@@ -512,41 +306,24 @@ function PlaybackPage() {
                 title: { display: true, text: 'Comments' },
                 grid: { drawOnChartArea: false },
                 beginAtZero: true,
-                suggestedMax: maxMessageCount * 1.1, // Add 10% padding
-                ticks: {
-                    precision: 0
-                }
+                suggestedMax: maxMessageCount * 1.1,
+                ticks: { precision: 0 }
             },
         },
         animation: false,
     }), [timeRange, maxViewerCount, maxMessageCount]);
 
+
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
-                {/* Header with Navigation */}
+                {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4">
                     <h1 className="text-3xl font-bold text-gray-800 mb-4 md:mb-0">▶️ Playback Mode</h1>
-
                     <div className="flex gap-3">
-                        <Link
-                            to="/"
-                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
-                        >
-                            📊 Dashboard
-                        </Link>
-                        <Link
-                            to="/playback"
-                            className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
-                        >
-                            ▶️ Playback
-                        </Link>
-                        <Link
-                            to="/admin"
-                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
-                        >
-                            ⚙️ Admin Panel
-                        </Link>
+                        <Link to="/" className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 hover:shadow-lg">📊 Dashboard</Link>
+                        <Link to="/playback" className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg">▶️ Playback</Link>
+                        <Link to="/admin" className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 hover:shadow-lg">⚙️ Admin Panel</Link>
                     </div>
                 </div>
 
@@ -555,7 +332,6 @@ function PlaybackPage() {
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">🎬 回放設定</h2>
 
                     <div className="grid grid-cols-12 gap-4">
-                        {/* Start Time */}
                         <div className="col-span-12 md:col-span-6 lg:col-span-3">
                             <DateTimeHourSelector
                                 label="開始時間"
@@ -564,8 +340,6 @@ function PlaybackPage() {
                                 max={formatLocalHour(new Date())}
                             />
                         </div>
-
-                        {/* End Time */}
                         <div className="col-span-12 md:col-span-6 lg:col-span-3">
                             <DateTimeHourSelector
                                 label="結束時間"
@@ -574,39 +348,29 @@ function PlaybackPage() {
                                 max={formatLocalHour(new Date())}
                             />
                         </div>
-
-                        {/* Step Interval */}
                         <div className="col-span-12 md:col-span-4 lg:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">步進間隔</label>
                             <select
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                 value={stepSeconds}
                                 onChange={(e) => setStepSeconds(Number(e.target.value))}
                             >
-                                {stepOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
+                                {stepOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         </div>
-
-                        {/* Playback Speed */}
                         <div className="col-span-12 md:col-span-4 lg:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">播放速度</label>
                             <select
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                 value={playbackSpeed}
                                 onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
                             >
-                                {speedOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
+                                {speedOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         </div>
-
-                        {/* Load Button */}
                         <div className="col-span-12 md:col-span-4 lg:col-span-2 flex items-end">
                             <button
-                                onClick={loadSnapshots}
+                                onClick={handleLoad}
                                 disabled={isLoading}
                                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
                             >
@@ -615,119 +379,80 @@ function PlaybackPage() {
                         </div>
                     </div>
 
-                    {/* Divider and Word Cloud Settings Section */}
+                    {/* Word Cloud Settings */}
                     <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-200">
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                             <div className="flex items-center gap-2 mb-4">
                                 <span className="text-xl">☁️</span>
                                 <h3 className="text-base font-bold text-slate-700">文字雲進階設定 (下列選項僅影響文字雲顯示)</h3>
                             </div>
-
                             <div className="grid grid-cols-12 gap-4">
-
-
-                                {/* Word Cloud: Window Hours */}
                                 <div className="col-span-12 md:col-span-6 lg:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">統計窗口</label>
                                     <select
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                         value={windowHours}
                                         onChange={(e) => setWindowHours(Number(e.target.value))}
                                     >
-                                        {windowHoursOptions.map(opt => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
+                                        {windowHoursOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                     </select>
                                 </div>
-
-                                {/* Word Cloud: Word Limit */}
                                 <div className="col-span-12 md:col-span-6 lg:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">顯示詞數</label>
                                     <select
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                         value={wordLimit}
                                         onChange={(e) => setWordLimit(Number(e.target.value))}
                                     >
-                                        {wordLimitOptions.map(opt => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
+                                        {wordLimitOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                     </select>
                                 </div>
-
-                                {/* Word Cloud: Exclusion Wordlist */}
                                 <div className="col-span-12 md:col-span-12 lg:col-span-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">排除清單</label>
                                     <select
-                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                         value={selectedWordlistId || ''}
                                         onChange={(e) => setSelectedWordlistId(e.target.value ? parseInt(e.target.value) : null)}
                                         disabled={loadingWordlists}
                                     >
                                         <option value="">⛔️ 不使用清單</option>
-                                        {savedWordlists.map(wl => (
-                                            <option key={wl.id} value={wl.id}>{wl.name}</option>
-                                        ))}
+                                        {savedWordlists.map(wl => <option key={wl.id} value={wl.id}>{wl.name}</option>)}
                                     </select>
                                 </div>
-
-                                {/* Empty space to align with Load button above if needed, or just let it flow */}
                                 <div className="col-span-12 md:col-span-4 lg:col-span-4">
-                                    {/* Placeholder or extra description */}
-                                    <p className="text-xs text-gray-400 mt-6">
-                                        * 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙
-                                    </p>
+                                    <p className="text-xs text-gray-400 mt-6">* 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {error && (
-                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-                            ⚠️ {error}
-                        </div>
-                    )}
+                    {error && <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">⚠️ {error}</div>}
                 </div>
 
-                {/* Playback Controls & Chart */}
+                {/* Content */}
                 {snapshots.length > 0 && (
                     <>
-                        {/* Playback Controls */}
+                        {/* Controls */}
                         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
                             <div className="flex flex-col items-center space-y-4">
-                                {/* Time Display */}
                                 <div className="text-center">
-                                    <div className="text-3xl font-bold text-gray-800">
-                                        {formatTimestamp(currentSnapshot?.timestamp)}
-                                    </div>
-                                    <div className="text-sm text-gray-500 mt-1">
-                                        Frame {currentIndex + 1} / {snapshots.length}
-                                    </div>
+                                    <div className="text-3xl font-bold text-gray-800">{formatTimestamp(currentSnapshot?.timestamp)}</div>
+                                    <div className="text-sm text-gray-500 mt-1">Frame {currentIndex + 1} / {snapshots.length}</div>
                                 </div>
-
-                                {/* Controls Row */}
                                 <div className="flex items-center gap-4 w-full max-w-2xl">
-                                    {/* Play/Pause Button */}
                                     <button
                                         onClick={togglePlayback}
-                                        className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg transition-all duration-200 ${isPlaying
-                                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                                            : 'bg-green-500 hover:bg-green-600 text-white'
-                                            }`}
+                                        className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg transition-all duration-200 ${isPlaying ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
                                     >
                                         {isPlaying ? '⏸' : '▶️'}
                                     </button>
-
-                                    {/* Progress Slider */}
                                     <div className="flex-1">
                                         <input
                                             type="range"
                                             min="0"
                                             max={snapshots.length - 1}
                                             value={currentIndex}
-                                            onChange={(e) => {
-                                                setCurrentIndex(Number(e.target.value));
-                                                setIsPlaying(false);
-                                            }}
+                                            onChange={(e) => { setCurrentIndex(Number(e.target.value)); setIsPlaying(false); }}
                                             className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                                         />
                                         <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -735,57 +460,33 @@ function PlaybackPage() {
                                             <span>{formatTimestamp(snapshots[snapshots.length - 1]?.timestamp)}</span>
                                         </div>
                                     </div>
-
-                                    {/* Speed Badge */}
-                                    <div className="bg-gray-200 px-3 py-1 rounded-full text-sm font-medium text-gray-700">
-                                        {speedOptions.find(o => o.value === playbackSpeed)?.label || '1x'}
-                                    </div>
+                                    <div className="bg-gray-200 px-3 py-1 rounded-full text-sm font-medium text-gray-700">{speedOptions.find(o => o.value === playbackSpeed)?.label || '1x'}</div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Main Chart - Dual Axis like Dashboard */}
+                        {/* Chart */}
                         <div className="bg-white p-6 rounded-lg shadow-md mb-6 h-[50vh]">
-                            <Chart
-                                type='bar'
-                                options={chartOptions}
-                                data={chartData}
-                                plugins={[hourGridPlugin, currentPositionPlugin]}
-                            />
+                            <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin, currentPositionPlugin]} />
                         </div>
 
-                        {/* Stats Display */}
+                        {/* Stats Card */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            {/* Viewer Count */}
                             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border border-blue-200">
                                 <div className="text-sm font-medium text-blue-700 mb-2">👥 觀看人數</div>
-                                <div className="text-4xl font-bold text-blue-900">
-                                    {formatNumber(currentSnapshot?.viewer_count)}
-                                </div>
+                                <div className="text-4xl font-bold text-blue-900">{formatNumber(currentSnapshot?.viewer_count)}</div>
                             </div>
-
-                            {/* Hourly Messages */}
                             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border border-green-200">
                                 <div className="text-sm font-medium text-green-700 mb-2">💬 每小時留言</div>
-                                <div className="text-4xl font-bold text-green-900">
-                                    {formatNumber(currentSnapshot?.hourly_messages)}
-                                </div>
+                                <div className="text-4xl font-bold text-green-900">{formatNumber(currentSnapshot?.hourly_messages)}</div>
                             </div>
-
-                            {/* Paid Messages */}
                             <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border border-purple-200">
                                 <div className="text-sm font-medium text-purple-700 mb-2">💰 SC 數量</div>
-                                <div className="text-4xl font-bold text-purple-900">
-                                    {formatNumber(currentSnapshot?.paid_message_count)}
-                                </div>
+                                <div className="text-4xl font-bold text-purple-900">{formatNumber(currentSnapshot?.paid_message_count)}</div>
                             </div>
-
-                            {/* Revenue */}
                             <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg shadow-md p-6 border border-amber-200">
                                 <div className="text-sm font-medium text-amber-700 mb-2">💵 營收 (TWD)</div>
-                                <div className="text-4xl font-bold text-amber-900">
-                                    {formatCurrency(currentSnapshot?.revenue_twd)}
-                                </div>
+                                <div className="text-4xl font-bold text-amber-900">{formatCurrency(currentSnapshot?.revenue_twd)}</div>
                             </div>
                         </div>
 
@@ -825,15 +526,6 @@ function PlaybackPage() {
                             </div>
                         </div>
                     </>
-                )}
-
-                {/* Empty State */}
-                {snapshots.length === 0 && !isLoading && (
-                    <div className="bg-white p-12 rounded-lg shadow-md text-center">
-                        <div className="text-6xl mb-4">🎬</div>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">設定時間範圍開始回放</h3>
-                        <p className="text-gray-500">選擇開始和結束時間，然後點擊「載入資料」按鈕</p>
-                    </div>
                 )}
             </div>
         </div>

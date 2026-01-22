@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
-import { enUS } from 'date-fns/locale';
-import MessageList from './MessageList';
-import MoneyStats from './MoneyStats';
-import WordCloudPanel from './WordCloud';
 import { Link } from 'react-router-dom';
-import { registerChartComponents, hourGridPlugin } from '../utils/chartSetup';
+import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
+import { fetchViewersStats, fetchCommentsStats } from '../../api/stats';
+import { formatLocalHour } from '../../utils/formatters';
+
+import MessageList from '../messages/MessageList';
+import WordCloudPanel from '../wordcloud/WordCloudPanel';
+import MoneyStats from './MoneyStats';
 
 registerChartComponents();
-
-const API_BASE_URL = 'http://localhost:8000'; // Should be configurable or relative in prod
 
 function Dashboard() {
     const [viewData, setViewData] = useState([]);
@@ -36,8 +36,8 @@ function Dashboard() {
             displayFormats: { hour: 'MM/dd HH:mm' }
         },
         ticks: {
-            source: 'auto', // Ensure ticks are generated based on scale, not just data
-            autoSkip: false // Try to show all hour ticks if space permits
+            source: 'auto',
+            autoSkip: false
         },
         min: new Date(new Date().getTime() - 12 * 60 * 60 * 1000).getTime(), // Initial rolling 12h
         max: new Date().getTime(),
@@ -45,14 +45,13 @@ function Dashboard() {
 
     const fetchViewers = async (start, end) => {
         try {
-            let url = `${API_BASE_URL}/api/stats/viewers?hours=12`;
-            if (start && end) {
-                url = `${API_BASE_URL}/api/stats/viewers?start_time=${start}&end_time=${end}`;
-            }
-            const res = await fetch(url);
-            const data = await res.json();
+            const data = await fetchViewersStats({
+                hours: (!start || !end) ? 12 : undefined,
+                startTime: start,
+                endTime: end
+            });
+
             const validData = data.map(d => ({
-                // API returns UTC ISO string with timezone offset
                 x: new Date(d.time).getTime(),
                 y: d.count
             }));
@@ -64,14 +63,13 @@ function Dashboard() {
 
     const fetchComments = async (start, end) => {
         try {
-            let url = `${API_BASE_URL}/api/stats/comments?hours=12`;
-            if (start && end) {
-                url = `${API_BASE_URL}/api/stats/comments?start_time=${start}&end_time=${end}`;
-            }
-            const res = await fetch(url);
-            const data = await res.json();
+            const data = await fetchCommentsStats({
+                hours: (!start || !end) ? 12 : undefined,
+                startTime: start,
+                endTime: end
+            });
+
             const validData = data.map(d => ({
-                // API returns UTC ISO string with timezone offset
                 // Shift by +30 minutes to center the bar in the hour slot
                 x: new Date(d.hour).getTime() + 30 * 60 * 1000,
                 y: d.count
@@ -95,8 +93,6 @@ function Dashboard() {
         }
 
         const startIso = new Date(startDate).toISOString();
-
-        // If no endDate, use current time (+8 timezone)
         const endObj = endDate ? new Date(endDate) : new Date();
         endObj.setMinutes(59, 59, 999);
         const endIso = endObj.toISOString();
@@ -116,13 +112,11 @@ function Dashboard() {
     };
 
     useEffect(() => {
-        // Initial / Polling
         const intervalId = setInterval(() => {
             if (toggleRefresh) {
                 fetchViewers();
                 fetchComments();
 
-                // Update rolling window
                 const now = new Date();
                 const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
                 setTimeAxisConfig(prev => ({
@@ -133,7 +127,6 @@ function Dashboard() {
             }
         }, 5000);
 
-        // Ensure initial run
         if (toggleRefresh) {
             fetchViewers();
             fetchComments();
@@ -141,8 +134,6 @@ function Dashboard() {
 
         return () => clearInterval(intervalId);
     }, [toggleRefresh]);
-
-
 
     // Dual Axis Chart Config
     const chartData = useMemo(() => ({
@@ -157,33 +148,28 @@ function Dashboard() {
                 pointRadius: (ctx) => {
                     const index = ctx.dataIndex;
                     const count = ctx.dataset.data.length;
-                    // Only show red dot on last point if no time filter is set
                     return (index === count - 1 && !endDate) ? 5 : 0;
                 },
                 pointBackgroundColor: (ctx) => {
                     const index = ctx.dataIndex;
                     const count = ctx.dataset.data.length;
-                    // Only red color on last point if no time filter
                     return (index === count - 1 && !endDate) ? '#ff4d4f' : '#5470C6';
                 },
                 pointBorderColor: (ctx) => {
                     const index = ctx.dataIndex;
                     const count = ctx.dataset.data.length;
-                    // Only red color on last point if no time filter
                     return (index === count - 1 && !endDate) ? '#ff4d4f' : '#5470C6';
                 },
                 pointHoverRadius: 8,
                 yAxisID: 'y1',
-                order: 1, // Draw on top
+                order: 1,
             },
             {
                 type: 'bar',
                 label: '每小時留言數',
                 data: commentData,
                 backgroundColor: (ctx) => {
-                    if (!commentData.length || !ctx.raw) return '#91cc75'; // Default color green-ish for distinction
-
-                    // Only highlight last bar if no time filter is set
+                    if (!commentData.length || !ctx.raw) return '#91cc75';
                     if (!endDate) {
                         const maxX = commentData[commentData.length - 1].x;
                         if (ctx.raw.x === maxX) {
@@ -203,25 +189,21 @@ function Dashboard() {
     const chartOptions = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-            duration: 0
-        },
+        animation: { duration: 0 },
         interaction: {
             mode: 'nearest',
             axis: 'x',
             intersect: false,
-
         },
         plugins: {
             legend: { position: 'top' },
             title: { display: true, text: 'Real-time Analytics' },
             tooltip: {
-                enabled: false, // Disable default canvas tooltip
+                enabled: false,
                 external: (context) => {
                     const { chart, tooltip } = context;
                     let tooltipEl = document.getElementById('chartjs-tooltip');
 
-                    // Create element on first render
                     if (!tooltipEl) {
                         tooltipEl = document.createElement('div');
                         tooltipEl.id = 'chartjs-tooltip';
@@ -236,58 +218,45 @@ function Dashboard() {
                         tooltipEl.style.padding = '8px 12px';
                         tooltipEl.style.fontFamily = 'Helvetica Neue, Helvetica, Arial, sans-serif';
                         tooltipEl.style.fontSize = '12px';
-                        tooltipEl.style.zIndex = '100'; // Ensure on top
+                        tooltipEl.style.zIndex = '100';
                         document.body.appendChild(tooltipEl);
                     }
 
-                    // Hide if no tooltip
                     if (tooltip.opacity === 0) {
                         tooltipEl.style.opacity = 0;
                         return;
                     }
 
-                    // Set View/Logic
                     if (tooltip.body) {
                         const item = tooltip.dataPoints[0];
                         const timestamp = item.raw.x;
                         const dateObj = new Date(timestamp);
-
-                        // Formatting Time
                         const pad = n => n.toString().padStart(2, '0');
                         const timeStr = `${pad(dateObj.getMonth() + 1)}/${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
 
-                        // --- Logic for finding both values ---
-
-                        // 1. Comments
-                        // Floor to hour, then + 30 mins
                         const cDate = new Date(timestamp);
                         cDate.setMinutes(0, 0, 0);
                         const cKey = cDate.getTime() + 30 * 60 * 1000;
                         const cData = commentData.find(d => d.x === cKey);
                         const cVal = cData ? cData.y : 'NA';
 
-                        // 2. Viewers
                         let vVal = 'NA';
                         if (viewData.length > 0) {
                             const closestViewer = viewData.reduce((prev, curr) => {
                                 return (Math.abs(curr.x - timestamp) < Math.abs(prev.x - timestamp) ? curr : prev);
                             });
-                            // Strict 5 minute threshold
                             const diff = Math.abs(closestViewer.x - timestamp);
                             if (diff <= 5 * 60 * 1000) {
                                 vVal = closestViewer.y;
                             }
                         }
 
-                        // HTML Generation
-                        // Viewers Row (Line Color: #5470C6)
                         const vRow = `
                             <div style="display: flex; align-items: center; margin-bottom: 4px;">
                                 <span style="display:inline-block; width:10px; height:10px; background-color:#5470C6; margin-right:6px;"></span>
                                 <span>Viewers: ${vVal}</span>
                             </div>`;
 
-                        // Comments Row (Bar Color: #91cc75 or #ff4d4f)
                         const cHour = cDate.getHours();
                         const cRange = `${pad(cHour)}:00 - ${pad(cHour)}:59`;
                         const cRow = `
@@ -299,7 +268,6 @@ function Dashboard() {
                         tooltipEl.innerHTML = `<div style="font-weight:bold; margin-bottom:6px;">${timeStr}</div>${vRow}${cRow}`;
                     }
 
-                    // Positioning
                     const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
                     tooltipEl.style.opacity = 1;
                     tooltipEl.style.left = positionX + tooltip.caretX + 'px';
@@ -310,7 +278,7 @@ function Dashboard() {
         scales: {
             x: {
                 ...timeAxisConfig,
-                grid: { display: false }, // Disable default grid, use plugin
+                grid: { display: false },
             },
             y1: {
                 type: 'linear',
@@ -326,20 +294,12 @@ function Dashboard() {
                 display: true,
                 position: 'right',
                 title: { display: true, text: 'Comments' },
-                grid: { drawOnChartArea: false }, // only want the grid lines for one axis to show up
+                grid: { drawOnChartArea: false },
                 beginAtZero: true,
                 ticks: { precision: 0 },
             },
         },
-    }), [timeAxisConfig, commentData, viewData]);
-
-    // Helper for local datetime-local string (YYYY-MM-DDTHH:00)
-    const formatLocalHour = (date) => {
-        const d = new Date(date);
-        d.setMinutes(0, 0, 0);
-        const pad = (n) => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
-    };
+    }), [timeAxisConfig, commentData, viewData, endDate, barFlash]);
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
@@ -434,7 +394,6 @@ function Dashboard() {
                     </div>
                 </div>
 
-
                 <div className="bg-white p-6 rounded-lg shadow-md h-[80vh] flex flex-col relative group">
                     {/* Digital Clock */}
                     <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300 opacity-100 pointer-events-none">
@@ -481,12 +440,10 @@ function Dashboard() {
                         return d.toISOString();
                     })() : null}
                     hasTimeFilter={!!endDate}
-
                 />
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }
 
 export default Dashboard;
-

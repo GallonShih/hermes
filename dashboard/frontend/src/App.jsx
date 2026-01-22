@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Dashboard from './components/Dashboard';
-import AdminPanel from './components/Admin/AdminPanel';
-import PlaybackPage from './components/PlaybackPage';
+import Dashboard from './features/dashboard/Dashboard';
+import AdminPanel from './features/admin/AdminPanel';
+import PlaybackPage from './features/playback/PlaybackPage';
 
 function App() {
     return (
