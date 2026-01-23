@@ -110,9 +110,16 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     const [pageInput, setPageInput] = useState('');
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [refreshInterval, setRefreshInterval] = useState(10);
+
+    // Filter states (Actual filters used for fetching)
     const [authorFilter, setAuthorFilter] = useState('');
     const [messageFilter, setMessageFilter] = useState('');
     const [paidMessageFilter, setPaidMessageFilter] = useState('all');
+
+    // Input states (For typing)
+    const [localAuthorFilter, setLocalAuthorFilter] = useState('');
+    const [localMessageFilter, setLocalMessageFilter] = useState('');
+
     const limit = 20;
 
     const {
@@ -157,6 +164,21 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     useEffect(() => {
         getHourlyStats({ startTime, endTime, authorFilter, messageFilter, paidMessageFilter });
     }, [startTime, endTime, authorFilter, messageFilter, paidMessageFilter, getHourlyStats]);
+
+    const handleKeyDown = (e, type) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            if (type === 'author') setAuthorFilter(localAuthorFilter);
+            if (type === 'message') setMessageFilter(localMessageFilter);
+        }
+    };
+
+    const clearFilters = () => {
+        setAuthorFilter('');
+        setLocalAuthorFilter('');
+        setMessageFilter('');
+        setLocalMessageFilter('');
+        setPaidMessageFilter('all');
+    };
 
     // Chart Data Preparation
     const filledChartData = (() => {
@@ -246,13 +268,29 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                 {/* Filters */}
                 <div className="flex items-center gap-3">
                     <label className="text-sm font-medium w-20">作者：</label>
-                    <input type="text" value={authorFilter} onChange={(e) => setAuthorFilter(e.target.value)} placeholder="搜尋作者名稱..." className="flex-1 px-3 py-2 border rounded text-sm" />
-                    {authorFilter && <button onClick={() => setAuthorFilter('')} className="px-3 py-2 text-sm bg-gray-200 rounded">清除</button>}
+                    <input
+                        type="text"
+                        value={localAuthorFilter}
+                        onChange={(e) => setLocalAuthorFilter(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 'author')}
+                        onBlur={() => setAuthorFilter(localAuthorFilter)}
+                        placeholder="輸入後按 Enter 搜尋..."
+                        className="flex-1 px-3 py-2 border rounded text-sm"
+                    />
+                    {localAuthorFilter && <button onClick={() => { setLocalAuthorFilter(''); setAuthorFilter(''); }} className="px-3 py-2 text-sm bg-gray-200 rounded">清除</button>}
                 </div>
                 <div className="flex items-center gap-3">
                     <label className="text-sm font-medium w-20">訊息：</label>
-                    <input type="text" value={messageFilter} onChange={(e) => setMessageFilter(e.target.value)} placeholder="搜尋訊息內容..." className="flex-1 px-3 py-2 border rounded text-sm" />
-                    {messageFilter && <button onClick={() => setMessageFilter('')} className="px-3 py-2 text-sm bg-gray-200 rounded">清除</button>}
+                    <input
+                        type="text"
+                        value={localMessageFilter}
+                        onChange={(e) => setLocalMessageFilter(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 'message')}
+                        onBlur={() => setMessageFilter(localMessageFilter)}
+                        placeholder="輸入後按 Enter 搜尋..."
+                        className="flex-1 px-3 py-2 border rounded text-sm"
+                    />
+                    {localMessageFilter && <button onClick={() => { setLocalMessageFilter(''); setMessageFilter(''); }} className="px-3 py-2 text-sm bg-gray-200 rounded">清除</button>}
                 </div>
                 <div className="flex items-center gap-3">
                     <label className="text-sm font-medium w-20">訊息類型：</label>
@@ -262,9 +300,9 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                         <option value="non_paid_only">僅一般訊息</option>
                     </select>
                 </div>
-                {(authorFilter || messageFilter || paidMessageFilter !== 'all') && (
+                {(authorFilter || messageFilter || paidMessageFilter !== 'all' || localAuthorFilter || localMessageFilter) && (
                     <div className="flex justify-end">
-                        <button onClick={() => { setAuthorFilter(''); setMessageFilter(''); setPaidMessageFilter('all'); }} className="px-4 py-2 bg-gray-200 rounded text-sm">清除所有篩選</button>
+                        <button onClick={clearFilters} className="px-4 py-2 bg-gray-200 rounded text-sm">清除所有篩選</button>
                     </div>
                 )}
             </div>

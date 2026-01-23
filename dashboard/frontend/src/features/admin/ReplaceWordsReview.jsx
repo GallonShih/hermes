@@ -13,6 +13,10 @@ const ReplaceWordsReview = () => {
     const [total, setTotal] = useState(0);
     const [sourceWordFilter, setSourceWordFilter] = useState('');
     const [targetWordFilter, setTargetWordFilter] = useState('');
+    // Local state for inputs
+    const [localSourceWordFilter, setLocalSourceWordFilter] = useState('');
+    const [localTargetWordFilter, setLocalTargetWordFilter] = useState('');
+
     const [sortBy, setSortBy] = useState('confidence');
     const [sortOrder, setSortOrder] = useState('desc');
     const [modalConfig, setModalConfig] = useState({
@@ -75,6 +79,20 @@ const ReplaceWordsReview = () => {
         } else {
             setSelectedIds([]);
         }
+    };
+
+    const handleKeyDown = (e, type) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            if (type === 'source') setSourceWordFilter(localSourceWordFilter);
+            if (type === 'target') setTargetWordFilter(localTargetWordFilter);
+        }
+    };
+
+    const clearFilters = () => {
+        setSourceWordFilter('');
+        setLocalSourceWordFilter('');
+        setTargetWordFilter('');
+        setLocalTargetWordFilter('');
     };
 
     const confirmAction = (action, id = null) => {
@@ -209,9 +227,11 @@ const ReplaceWordsReview = () => {
                         <label className="block text-sm font-medium mb-1">Search Source Word:</label>
                         <input
                             type="text"
-                            value={sourceWordFilter}
-                            onChange={(e) => setSourceWordFilter(e.target.value)}
-                            placeholder="輸入原始詞彙搜尋..."
+                            value={localSourceWordFilter}
+                            onChange={(e) => setLocalSourceWordFilter(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, 'source')}
+                            onBlur={() => setSourceWordFilter(localSourceWordFilter)}
+                            placeholder="輸入原始詞彙搜尋 (按 Enter)"
                             className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
@@ -219,20 +239,19 @@ const ReplaceWordsReview = () => {
                         <label className="block text-sm font-medium mb-1">Search Target Word:</label>
                         <input
                             type="text"
-                            value={targetWordFilter}
-                            onChange={(e) => setTargetWordFilter(e.target.value)}
-                            placeholder="輸入替換詞彙搜尋..."
+                            value={localTargetWordFilter}
+                            onChange={(e) => setLocalTargetWordFilter(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, 'target')}
+                            onBlur={() => setTargetWordFilter(localTargetWordFilter)}
+                            placeholder="輸入替換詞彙搜尋 (按 Enter)"
                             className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
                 </div>
-                {(sourceWordFilter || targetWordFilter) && (
+                {(sourceWordFilter || targetWordFilter || localSourceWordFilter || localTargetWordFilter) && (
                     <div className="mt-2 flex justify-end">
                         <button
-                            onClick={() => {
-                                setSourceWordFilter('');
-                                setTargetWordFilter('');
-                            }}
+                            onClick={clearFilters}
                             className="text-sm text-red-600 hover:text-red-700 underline"
                         >
                             清除搜尋

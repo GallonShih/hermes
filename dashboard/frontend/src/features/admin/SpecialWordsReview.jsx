@@ -12,6 +12,9 @@ const SpecialWordsReview = () => {
     const [page, setPage] = useState(0);
     const [total, setTotal] = useState(0);
     const [wordFilter, setWordFilter] = useState('');
+    // Local state for input
+    const [localWordFilter, setLocalWordFilter] = useState('');
+
     const [sortBy, setSortBy] = useState('confidence');
     const [sortOrder, setSortOrder] = useState('desc');
     const [modalConfig, setModalConfig] = useState({
@@ -73,6 +76,17 @@ const SpecialWordsReview = () => {
         } else {
             setSelectedIds([]);
         }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            setWordFilter(localWordFilter);
+        }
+    };
+
+    const clearFilters = () => {
+        setWordFilter('');
+        setLocalWordFilter('');
     };
 
     const confirmAction = (action, id = null) => {
@@ -239,16 +253,18 @@ const SpecialWordsReview = () => {
                     <label className="block text-sm font-medium mb-1">Search Word:</label>
                     <input
                         type="text"
-                        value={wordFilter}
-                        onChange={(e) => setWordFilter(e.target.value)}
-                        placeholder="輸入詞彙搜尋..."
+                        value={localWordFilter}
+                        onChange={(e) => setLocalWordFilter(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onBlur={() => setWordFilter(localWordFilter)}
+                        placeholder="輸入詞彙搜尋 (按 Enter)"
                         className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
-                {wordFilter && (
+                {(wordFilter || localWordFilter) && (
                     <div className="mt-2 flex justify-end">
                         <button
-                            onClick={() => setWordFilter('')}
+                            onClick={clearFilters}
                             className="text-sm text-red-600 hover:text-red-700 underline"
                         >
                             清除搜尋
