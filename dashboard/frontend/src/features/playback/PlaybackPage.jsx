@@ -7,6 +7,7 @@ import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
 import { formatNumber, formatCurrency, formatTimestamp, formatLocalHour } from '../../utils/formatters';
 import { usePlayback } from '../../hooks/usePlayback';
 import { useWordlists } from '../../hooks/useWordlists';
+import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
 
 registerChartComponents();
 
@@ -35,12 +36,14 @@ function PlaybackPage() {
         togglePlayback
     } = usePlayback();
 
-    const { savedWordlists, loading: loadingWordlists } = useWordlists();
+    const { savedWordlists: savedExclusionWordlists, loading: loadingExclusionWordlists } = useWordlists();
+    const { savedWordlists: savedReplacementWordlists, loading: loadingReplacementWordlists } = useReplacementWordlists();
 
     // Word cloud config state
     const [windowHours, setWindowHours] = useState(4);
     const [wordLimit, setWordLimit] = useState(30);
     const [selectedWordlistId, setSelectedWordlistId] = useState(null);
+    const [selectedReplacementWordlistId, setSelectedReplacementWordlistId] = useState(null);
 
     // Refs
     const playIntervalRef = useRef(null);
@@ -92,7 +95,8 @@ function PlaybackPage() {
             stepSeconds,
             windowHours,
             wordLimit,
-            wordlistId: selectedWordlistId
+            wordlistId: selectedWordlistId,
+            replacementWordlistId: selectedReplacementWordlistId
         });
     };
 
@@ -407,20 +411,32 @@ function PlaybackPage() {
                                         {wordLimitOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                     </select>
                                 </div>
-                                <div className="col-span-12 md:col-span-12 lg:col-span-4">
+                                <div className="col-span-12 md:col-span-6 lg:col-span-4">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">排除清單</label>
                                     <select
                                         className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                                         value={selectedWordlistId || ''}
                                         onChange={(e) => setSelectedWordlistId(e.target.value ? parseInt(e.target.value) : null)}
-                                        disabled={loadingWordlists}
+                                        disabled={loadingExclusionWordlists}
                                     >
                                         <option value="">⛔️ 不使用清單</option>
-                                        {savedWordlists.map(wl => <option key={wl.id} value={wl.id}>{wl.name}</option>)}
+                                        {savedExclusionWordlists.map(wl => <option key={wl.id} value={wl.id}>{wl.name}</option>)}
                                     </select>
                                 </div>
-                                <div className="col-span-12 md:col-span-4 lg:col-span-4">
-                                    <p className="text-xs text-gray-400 mt-6">* 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙</p>
+                                <div className="col-span-12 md:col-span-6 lg:col-span-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">取代清單</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                                        value={selectedReplacementWordlistId || ''}
+                                        onChange={(e) => setSelectedReplacementWordlistId(e.target.value ? parseInt(e.target.value) : null)}
+                                        disabled={loadingReplacementWordlists}
+                                    >
+                                        <option value="">🔀 不使用清單</option>
+                                        {savedReplacementWordlists.map(wl => <option key={wl.id} value={wl.id}>{wl.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-span-12">
+                                    <p className="text-xs text-gray-400">* 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙</p>
                                 </div>
                             </div>
                         </div>

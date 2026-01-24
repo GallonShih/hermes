@@ -7,7 +7,7 @@ export const useWordFrequency = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const getWordFrequency = useCallback(async ({ startTime, endTime, limit = 100, excludeWords }) => {
+    const getWordFrequency = useCallback(async ({ startTime, endTime, limit = 100, excludeWords, replacementWordlistId, replacementRules }) => {
         setLoading(true);
         setError(null);
         try {
@@ -20,7 +20,9 @@ export const useWordFrequency = () => {
                 startTime: effectiveStartTime,
                 endTime,
                 limit,
-                excludeWords
+                excludeWords,
+                replacementWordlistId,
+                replacements: replacementRules // Array of {source, target}
             });
 
             const cloudData = data.words.map(w => ({

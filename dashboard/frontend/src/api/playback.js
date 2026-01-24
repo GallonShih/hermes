@@ -15,7 +15,7 @@ export const fetchPlaybackSnapshots = async ({ startTime, endTime, stepSeconds }
     return response.json();
 };
 
-export const fetchPlaybackWordCloudSnapshots = async ({ startTime, endTime, stepSeconds, windowHours, wordLimit, wordlistId }) => {
+export const fetchPlaybackWordCloudSnapshots = async ({ startTime, endTime, stepSeconds, windowHours, wordLimit, wordlistId, replacementWordlistId }) => {
     const params = new URLSearchParams({
         start_time: startTime,
         end_time: endTime,
@@ -26,6 +26,9 @@ export const fetchPlaybackWordCloudSnapshots = async ({ startTime, endTime, step
 
     if (wordlistId) {
         params.append('wordlist_id', wordlistId.toString());
+    }
+    if (replacementWordlistId) {
+        params.append('replacement_wordlist_id', replacementWordlistId.toString());
     }
 
     const response = await fetch(`${API_BASE_URL}/api/playback/word-frequency-snapshots?${params}`);

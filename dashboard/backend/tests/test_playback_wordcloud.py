@@ -132,10 +132,14 @@ class TestWordFrequencySnapshots:
         """Test endpoint returns word frequency data correctly."""
         with patch('app.routers.playback_wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
+            # Now returns (message_id, word) tuples
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("好", 30),
-                ("讚", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg3", "哈哈"),
+                ("msg1", "好"),
+                ("msg2", "好"),
+                ("msg1", "讚"),
             ]
             
             from app.core.database import get_db
@@ -170,7 +174,8 @@ class TestWordFrequencySnapshots:
                 # First snapshot should have word data
                 words = data["snapshots"][0]["words"]
                 assert len(words) == 3
-                assert words[0] == {"word": "哈哈", "size": 50}
+                # 哈哈 appears in 3 messages
+                assert words[0] == {"word": "哈哈", "size": 3}
             finally:
                 if original_override:
                     app.dependency_overrides[get_db] = original_override
@@ -182,10 +187,11 @@ class TestWordFrequencySnapshots:
         with patch('app.routers.playback_wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("!", 30),  # Should be excluded
-                ("。", 25),  # Should be excluded
-                ("好", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg1", "!"),  # Should be excluded
+                ("msg2", "。"),  # Should be excluded
+                ("msg1", "好"),
             ]
             
             from app.core.database import get_db
@@ -228,9 +234,10 @@ class TestWordFrequencySnapshots:
         with patch('app.routers.playback_wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("好", 30),
-                ("讚", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg1", "好"),
+                ("msg1", "讚"),
             ]
             
             from app.core.database import get_db
@@ -284,9 +291,10 @@ class TestWordFrequencySnapshots:
         with patch('app.routers.playback_wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("好", 30),
-                ("讚", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg1", "好"),
+                ("msg1", "讚"),
             ]
             
             from app.core.database import get_db

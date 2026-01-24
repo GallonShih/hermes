@@ -1,7 +1,7 @@
 import API_BASE_URL from './client';
 
 // Word Frequency
-export const fetchWordFrequency = async ({ startTime, endTime, limit, excludeWords }) => {
+export const fetchWordFrequency = async ({ startTime, endTime, limit, excludeWords, replacementWordlistId, replacements }) => {
     let url = `${API_BASE_URL}/api/wordcloud/word-frequency`;
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit);
@@ -9,6 +9,13 @@ export const fetchWordFrequency = async ({ startTime, endTime, limit, excludeWor
     if (endTime) params.append('end_time', endTime);
     if (excludeWords && excludeWords.length > 0) {
         params.append('exclude_words', excludeWords.join(','));
+    }
+    // If replacements provided (ad-hoc), pass as JSON string. This overrides/augments ID on backend.
+    if (replacements && replacements.length > 0) {
+        params.append('replacements', JSON.stringify(replacements));
+    }
+    if (replacementWordlistId) {
+        params.append('replacement_wordlist_id', replacementWordlistId);
     }
 
     const res = await fetch(`${url}?${params.toString()}`);

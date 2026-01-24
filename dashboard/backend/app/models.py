@@ -188,3 +188,17 @@ class ExclusionWordlist(Base):
     def __repr__(self):
         return f"<ExclusionWordlist(id={self.id}, name={self.name}, words_count={len(self.words) if self.words else 0})>"
 
+
+class ReplacementWordlist(Base):
+    __tablename__ = 'replacement_wordlists'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    replacements = Column(JSON, nullable=False)  # Array of {source, target} objects
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<ReplacementWordlist(id={self.id}, name={self.name}, replacements_count={len(self.replacements) if self.replacements else 0})>"
+
+

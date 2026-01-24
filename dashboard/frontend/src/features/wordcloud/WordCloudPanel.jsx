@@ -2,11 +2,20 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WordCloud from 'react-d3-cloud';
 import { useWordFrequency } from '../../hooks/useWordFrequency';
 import { useWordlists } from '../../hooks/useWordlists';
+import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
+
+import ReplacementWordlistPanel from './ReplacementWordlistPanel';
 
 function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
+    // Local State for Config Tab
+    const [configTab, setConfigTab] = useState('exclusion'); // 'exclusion' | 'replacement'
+    const [selectedReplacementWordlistId, setSelectedReplacementWordlistId] = useState(null);
+    const [replacementRules, setReplacementRules] = useState([]); // Array of {source, target}
+
     // Hooks
     const { wordData, stats, loading, error, getWordFrequency } = useWordFrequency();
     const { savedWordlists, refreshWordlists, saveWordlist, updateWordlist, removeWordlist, getWordlist } = useWordlists();
+    const { getWordlist: getReplacementWordlist } = useReplacementWordlists();
 
     // Local State
     const [excludeWords, setExcludeWords] = useState([]);
@@ -24,8 +33,14 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
 
     // Fetch frequency on change
     useEffect(() => {
-        getWordFrequency({ startTime, endTime, excludeWords });
-    }, [startTime, endTime, excludeWords, getWordFrequency]);
+        getWordFrequency({
+            startTime,
+            endTime,
+            excludeWords,
+            replacementWordlistId: selectedReplacementWordlistId,
+            replacementRules
+        });
+    }, [startTime, endTime, excludeWords, selectedReplacementWordlistId, replacementRules, getWordFrequency]);
 
     // Handle exclude
     const handleAddExcludeWord = () => {
@@ -55,6 +70,22 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
             setExcludeWords(data.words || []);
             setSelectedWordlistId(wordlistId);
             setIsModified(false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    // Replacement Wordlist Handling
+    const handleLoadReplacementWordlist = async (wordlistId) => {
+        if (!wordlistId) {
+            setSelectedReplacementWordlistId(null);
+            setReplacementRules([]);
+            return;
+        }
+        try {
+            const data = await getReplacementWordlist(wordlistId);
+            setReplacementRules(data.replacements || []);
+            setSelectedReplacementWordlistId(wordlistId);
         } catch (err) {
             console.error(err);
         }
@@ -160,6 +191,17 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
 
     const currentWordlistName = useMemo(() => savedWordlists.find(w => w.id === selectedWordlistId)?.name, [selectedWordlistId, savedWordlists]);
 
+    const handleReplacementUpdate = useCallback(() => {
+        // Refresh word frequency when replacement rules change
+        getWordFrequency({
+            startTime,
+            endTime,
+            excludeWords,
+            replacementWordlistId: selectedReplacementWordlistId,
+            replacementRules
+        });
+    }, [getWordFrequency, startTime, endTime, excludeWords, selectedReplacementWordlistId, replacementRules]);
+
     return (
         <div className="bg-white p-6 rounded-lg shadow-md mt-6">
             {showSaveModal && (
@@ -180,7 +222,7 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                 <h2 className="text-xl font-bold text-gray-800">☁️ 文字雲</h2>
                 <div className="flex gap-2">
                     <button onClick={() => setSeed(Math.floor(Math.random() * 1000000))} className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700">🔄 重繪</button>
-                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords })} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">🔃 重新載入</button>
+                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords, replacementWordlistId: selectedReplacementWordlistId })} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">🔃 重新載入</button>
                 </div>
             </div>
 
@@ -217,27 +259,55 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                     </div>
                 </div>
                 <div>
-                    <div className="flex justify-between mb-2 text-sm">
-                        <span>排除詞彙 {currentWordlistName && `(${currentWordlistName}${isModified ? '*' : ''})`}</span>
-                        <div className="flex gap-1">
-                            <select value={selectedWordlistId || ''} onChange={(e) => handleLoadWordlist(e.target.value ? parseInt(e.target.value) : null)} className="border rounded px-1 text-sm">
-                                <option value="">⛔️ 無</option>
-                                {savedWordlists.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                            </select>
-                            {selectedWordlistId && isModified && <button onClick={handleUpdateWordlist} className="bg-green-500 text-white px-2 rounded text-xs">更新</button>}
-                            <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs">另存</button>
-                            {selectedWordlistId && <button onClick={handleDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs">刪除</button>}
-                        </div>
+                    {/* Config Tabs */}
+                    <div className="flex gap-2 border-b mb-3">
+                        <button
+                            className={`px-3 py-1 text-sm ${configTab === 'exclusion' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setConfigTab('exclusion')}
+                        >
+                            ⛔️ 排除詞彙
+                        </button>
+                        <button
+                            className={`px-3 py-1 text-sm ${configTab === 'replacement' ? 'border-b-2 border-purple-500 text-purple-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => setConfigTab('replacement')}
+                        >
+                            🔀 取代規則
+                        </button>
                     </div>
-                    <div className="flex gap-2 mb-2">
-                        <input type="text" value={newExcludeWord} onChange={(e) => setNewExcludeWord(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddExcludeWord()} className="border rounded px-2 py-1 flex-1 text-sm" placeholder="新增..." />
-                        <button onClick={handleAddExcludeWord} className="bg-red-500 text-white px-3 rounded text-sm">+</button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {excludeWords.map(w => (
-                            <span key={w} className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm flex items-center gap-1">{w} <button onClick={() => handleRemoveExcludeWord(w)} className="font-bold">✕</button></span>
-                        ))}
-                    </div>
+
+                    {configTab === 'exclusion' ? (
+                        <>
+                            <div className="flex justify-between mb-2 text-sm">
+                                <span>排除詞彙 {currentWordlistName && `(${currentWordlistName}${isModified ? '*' : ''})`}</span>
+                                <div className="flex gap-1">
+                                    <select value={selectedWordlistId || ''} onChange={(e) => handleLoadWordlist(e.target.value ? parseInt(e.target.value) : null)} className="border rounded px-1 text-sm max-w-[120px]">
+                                        <option value="">⛔️ 無</option>
+                                        {savedWordlists.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                    </select>
+                                    {selectedWordlistId && isModified && <button onClick={handleUpdateWordlist} className="bg-green-500 text-white px-2 rounded text-xs">更新</button>}
+                                    <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs">另存</button>
+                                    {selectedWordlistId && <button onClick={handleDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs">刪除</button>}
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mb-2">
+                                <input type="text" value={newExcludeWord} onChange={(e) => setNewExcludeWord(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddExcludeWord()} className="border rounded px-2 py-1 flex-1 text-sm" placeholder="新增..." />
+                                <button onClick={handleAddExcludeWord} className="bg-red-500 text-white px-3 rounded text-sm">+</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                                {excludeWords.map(w => (
+                                    <span key={w} className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm flex items-center gap-1">{w} <button onClick={() => handleRemoveExcludeWord(w)} className="font-bold">✕</button></span>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <ReplacementWordlistPanel
+                            selectedId={selectedReplacementWordlistId}
+                            onSelect={handleLoadReplacementWordlist}
+                            onUpdate={handleReplacementUpdate}
+                            rules={replacementRules}
+                            onRulesChange={setReplacementRules}
+                        />
+                    )}
                 </div>
             </div>
         </div>

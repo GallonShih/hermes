@@ -46,10 +46,14 @@ class TestGetWordFrequency:
         """Test endpoint returns word frequency data."""
         with patch('app.routers.wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
+            # Now returns (message_id, word) tuples
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("好", 30),
-                ("讚", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg3", "哈哈"),
+                ("msg1", "好"),
+                ("msg2", "好"),
+                ("msg1", "讚"),
             ]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (100, 50)
@@ -71,9 +75,10 @@ class TestGetWordFrequency:
                 assert response.status_code == 200
                 data = response.json()
                 assert len(data["words"]) == 3
-                assert data["words"][0] == {"word": "哈哈", "count": 50}
-                assert data["words"][1] == {"word": "好", "count": 30}
-                assert data["words"][2] == {"word": "讚", "count": 20}
+                # 哈哈 appears in 3 messages, 好 in 2, 讚 in 1
+                assert data["words"][0] == {"word": "哈哈", "count": 3}
+                assert data["words"][1] == {"word": "好", "count": 2}
+                assert data["words"][2] == {"word": "讚", "count": 1}
                 assert data["total_messages"] == 100
                 assert data["unique_words"] == 50
             finally:
@@ -84,12 +89,13 @@ class TestGetWordFrequency:
         """Test endpoint respects limit parameter."""
         with patch('app.routers.wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
+            # (message_id, word) tuples
             mock_result.fetchall.return_value = [
-                ("word1", 50),
-                ("word2", 40),
-                ("word3", 30),
-                ("word4", 20),
-                ("word5", 10),
+                ("msg1", "word1"), ("msg2", "word1"), ("msg3", "word1"),
+                ("msg1", "word2"), ("msg2", "word2"),
+                ("msg1", "word3"),
+                ("msg1", "word4"),
+                ("msg1", "word5"),
             ]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (50, 25)
@@ -122,10 +128,11 @@ class TestGetWordFrequency:
             mock_result = MagicMock()
             # Include some punctuation that should be filtered out
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("!", 30),  # Should be excluded
-                ("。", 25),  # Should be excluded
-                ("好", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg1", "!"),  # Should be excluded
+                ("msg2", "。"),  # Should be excluded
+                ("msg1", "好"),
             ]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (100, 50)
@@ -160,9 +167,10 @@ class TestGetWordFrequency:
         with patch('app.routers.wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
             mock_result.fetchall.return_value = [
-                ("哈哈", 50),
-                ("好", 30),
-                ("讚", 20),
+                ("msg1", "哈哈"),
+                ("msg2", "哈哈"),
+                ("msg1", "好"),
+                ("msg1", "讚"),
             ]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (100, 50)
@@ -195,7 +203,7 @@ class TestGetWordFrequency:
         """Test endpoint filters by current video ID."""
         with patch('app.routers.wordcloud.get_current_video_id', return_value="test_video_123"):
             mock_result = MagicMock()
-            mock_result.fetchall.return_value = [("filtered_word", 10)]
+            mock_result.fetchall.return_value = [("msg1", "filtered_word")]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (10, 5)
             
@@ -225,7 +233,7 @@ class TestGetWordFrequency:
         """Test endpoint accepts time filter parameters."""
         with patch('app.routers.wordcloud.get_current_video_id', return_value=None):
             mock_result = MagicMock()
-            mock_result.fetchall.return_value = [("時間詞", 15)]
+            mock_result.fetchall.return_value = [("msg1", "時間詞")]
             mock_stats_result = MagicMock()
             mock_stats_result.fetchone.return_value = (20, 10)
             
@@ -318,3 +326,4 @@ class TestGetWordFrequency:
             finally:
                 if original_override:
                     app.dependency_overrides[get_db] = original_override
+

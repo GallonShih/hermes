@@ -49,7 +49,7 @@ export const usePlayback = () => {
     };
 
     // Load wordcloud snapshots
-    const loadWordcloudSnapshots = async ({ startDate, endDate, stepSeconds, windowHours, wordLimit, wordlistId }) => {
+    const loadWordcloudSnapshots = async ({ startDate, endDate, stepSeconds, windowHours, wordLimit, wordlistId, replacementWordlistId }) => {
         if (!startDate || !endDate) return;
 
         setWordcloudLoading(true);
@@ -65,7 +65,8 @@ export const usePlayback = () => {
                 stepSeconds,
                 windowHours,
                 wordLimit,
-                wordlistId
+                wordlistId,
+                replacementWordlistId
             });
 
             setWordcloudSnapshots(data.snapshots);
