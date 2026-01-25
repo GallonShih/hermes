@@ -1,24 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
 
-const ReplacementWordlistPanel = ({ selectedId, onSelect, onUpdate, rules, onRulesChange }) => {
+const ReplacementWordlistPanel = ({
+    selectedId,
+    onSelect,
+    onUpdate,
+    rules,
+    onRulesChange,
+    source,
+    onSourceChange,
+    target,
+    onTargetChange
+}) => {
     // Hooks
     const {
         savedWordlists,
-        loading, // loading list of wordlists
+        loading,
         saveWordlist,
         updateWordlist,
         removeWordlist
     } = useReplacementWordlists();
-
-    const [newSource, setNewSource] = useState('');
-    const [newTarget, setNewTarget] = useState('');
 
     // UI state
     const [isModified, setIsModified] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newListName, setNewListName] = useState('');
     const [createError, setCreateError] = useState('');
+    const [updateSuccess, setUpdateSuccess] = useState(false);
 
     // Reset modified state when list selection changes
     useEffect(() => {
@@ -27,20 +35,20 @@ const ReplacementWordlistPanel = ({ selectedId, onSelect, onUpdate, rules, onRul
 
     // Handlers
     const handleAddRule = () => {
-        if (!newSource.trim() || !newTarget.trim()) return;
+        if (!source.trim() || !target.trim()) return;
 
         // Remove existing rule for same source if any (to avoid duplicates)
-        const filtered = rules.filter(r => r.source !== newSource.trim());
-        const newRules = [...filtered, { source: newSource.trim(), target: newTarget.trim() }];
+        const filtered = rules.filter(r => r.source !== source.trim());
+        const newRules = [...filtered, { source: source.trim(), target: target.trim() }];
 
         onRulesChange(newRules);
-        setNewSource('');
-        setNewTarget('');
+        onSourceChange('');
+        onTargetChange('');
         setIsModified(true);
     };
 
-    const handleRemoveRule = (source) => {
-        const newRules = rules.filter(r => r.source !== source);
+    const handleRemoveRule = (ruleSource) => {
+        const newRules = rules.filter(r => r.source !== ruleSource);
         onRulesChange(newRules);
         setIsModified(true);
     };
@@ -50,6 +58,8 @@ const ReplacementWordlistPanel = ({ selectedId, onSelect, onUpdate, rules, onRul
         try {
             await updateWordlist(selectedId, rules);
             setIsModified(false);
+            setUpdateSuccess(true);
+            setTimeout(() => setUpdateSuccess(false), 2000);
             if (onUpdate) onUpdate();
         } catch (err) {
             console.error(err);
@@ -108,14 +118,13 @@ const ReplacementWordlistPanel = ({ selectedId, onSelect, onUpdate, rules, onRul
 
                     {selectedId ? (
                         <>
-                            {isModified && (
-                                <button
-                                    onClick={handleSaveChanges}
-                                    className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
-                                >
-                                    儲存變更
-                                </button>
-                            )}
+                            <button
+                                onClick={handleSaveChanges}
+                                className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500'} text-white px-2 py-1 rounded text-xs hover:${updateSuccess ? 'bg-gray-600' : 'bg-green-600'} transition-colors duration-200`}
+                                disabled={updateSuccess}
+                            >
+                                {updateSuccess ? '已更新!' : '更新'}
+                            </button>
                             <button
                                 onClick={() => setShowCreateModal(true)}
                                 className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
@@ -147,23 +156,23 @@ const ReplacementWordlistPanel = ({ selectedId, onSelect, onUpdate, rules, onRul
                 <div className="flex gap-2 items-center">
                     <input
                         type="text"
-                        value={newSource}
-                        onChange={(e) => setNewSource(e.target.value)}
+                        value={source}
+                        onChange={(e) => onSourceChange(e.target.value)}
                         placeholder="原始詞 (如: 酥)"
                         className="border rounded px-2 py-1 text-sm flex-1"
                     />
                     <span className="text-gray-400">➜</span>
                     <input
                         type="text"
-                        value={newTarget}
-                        onChange={(e) => setNewTarget(e.target.value)}
+                        value={target}
+                        onChange={(e) => onTargetChange(e.target.value)}
                         placeholder="取代為 (如: 方塊酥)"
                         className="border rounded px-2 py-1 text-sm flex-1"
                         onKeyPress={(e) => e.key === 'Enter' && handleAddRule()}
                     />
                     <button
                         onClick={handleAddRule}
-                        disabled={!newSource.trim() || !newTarget.trim()}
+                        disabled={!source.trim() || !target.trim()}
                         className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
                     >
                         +

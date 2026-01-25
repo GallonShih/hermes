@@ -11,6 +11,9 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
     const [configTab, setConfigTab] = useState('exclusion'); // 'exclusion' | 'replacement'
     const [selectedReplacementWordlistId, setSelectedReplacementWordlistId] = useState(null);
     const [replacementRules, setReplacementRules] = useState([]); // Array of {source, target}
+    const [replacementSource, setReplacementSource] = useState('');
+    const [replacementTarget, setReplacementTarget] = useState('');
+
 
     // Hooks
     const { wordData, stats, loading, error, getWordFrequency } = useWordFrequency();
@@ -27,6 +30,7 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
     const [saveAsName, setSaveAsName] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
+    const [updateSuccess, setUpdateSuccess] = useState(false);
 
     const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
     const [seedInput, setSeedInput] = useState('');
@@ -112,6 +116,8 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         try {
             await updateWordlist(selectedWordlistId, excludeWords);
             setIsModified(false);
+            setUpdateSuccess(true);
+            setTimeout(() => setUpdateSuccess(false), 2000);
         } catch (err) {
             console.error(err);
         }
@@ -202,6 +208,17 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         });
     }, [getWordFrequency, startTime, endTime, excludeWords, selectedReplacementWordlistId, replacementRules]);
 
+    const handleSetReplacementSource = (text) => {
+        setReplacementSource(text);
+        setConfigTab('replacement');
+    };
+
+    const handleSetReplacementTarget = (text) => {
+        setReplacementTarget(text);
+        setConfigTab('replacement');
+    };
+
+
     return (
         <div className="bg-white p-6 rounded-lg shadow-md mt-6">
             {showSaveModal && (
@@ -242,8 +259,11 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                             <span style={{ color: fill(w) }}>{i + 1}. {w.text}</span>
                             <div className="flex items-center gap-1">
                                 <span className="text-xs text-gray-500">{w.value}</span>
-                                <button onClick={() => !excludeWords.includes(w.text) && setExcludeWords([...excludeWords, w.text])} className="opacity-0 group-hover:opacity-100 text-red-500">✕</button>
+                                <button onClick={() => !excludeWords.includes(w.text) && setExcludeWords([...excludeWords, w.text])} className="opacity-0 group-hover:opacity-100 text-red-500" title="排除此詞">✕</button>
+                                <button onClick={() => handleSetReplacementSource(w.text)} className="opacity-0 group-hover:opacity-100 text-blue-500 ml-1" title="設為取代來源">S</button>
+                                <button onClick={() => handleSetReplacementTarget(w.text)} className="opacity-0 group-hover:opacity-100 text-green-500 ml-1" title="設為取代目標">T</button>
                             </div>
+
                         </div>
                     ))}
                 </div>
@@ -284,7 +304,15 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                                         <option value="">⛔️ 無</option>
                                         {savedWordlists.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                     </select>
-                                    {selectedWordlistId && isModified && <button onClick={handleUpdateWordlist} className="bg-green-500 text-white px-2 rounded text-xs">更新</button>}
+                                    {selectedWordlistId && (
+                                        <button
+                                            onClick={handleUpdateWordlist}
+                                            className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500'} text-white px-2 rounded text-xs transition-colors duration-200`}
+                                            disabled={updateSuccess}
+                                        >
+                                            {updateSuccess ? '已更新!' : '更新'}
+                                        </button>
+                                    )}
                                     <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs">另存</button>
                                     {selectedWordlistId && <button onClick={handleDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs">刪除</button>}
                                 </div>
@@ -306,6 +334,10 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                             onUpdate={handleReplacementUpdate}
                             rules={replacementRules}
                             onRulesChange={setReplacementRules}
+                            source={replacementSource}
+                            onSourceChange={setReplacementSource}
+                            target={replacementTarget}
+                            onTargetChange={setReplacementTarget}
                         />
                     )}
                 </div>
