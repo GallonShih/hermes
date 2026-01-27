@@ -30,11 +30,14 @@ function DynamicWordCloud({ words, width = 900, height = 500, wordLimit = 30 }) 
 
     const [showControls, setShowControls] = useState(false);
 
-    // Color palette
+    // Color palette - expanded with richer, more vibrant colors
     const colorPalette = useMemo(() => [
         '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
         '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC', '#48B8D0',
-        '#6E7074', '#546570', '#C23531', '#2F4554', '#61A0A8'
+        '#6E7074', '#546570', '#C23531', '#2F4554', '#61A0A8',
+        '#D48265', '#749F83', '#CA8622', '#BDA29A', '#6E7074',
+        '#C4CCD3', '#F9C74F', '#90BE6D', '#43AA8B', '#577590',
+        '#F94144', '#F3722C', '#F8961E', '#F9844A', '#277DA1'
     ], []);
 
     // Color hashing function

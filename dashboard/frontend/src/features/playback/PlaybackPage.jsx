@@ -3,6 +3,7 @@ import { Chart } from 'react-chartjs-2';
 import { Link } from 'react-router-dom';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
 import DynamicWordCloud from '../../components/common/DynamicWordCloud';
+import BarChartRace from '../../components/common/BarChartRace';
 import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
 import { formatNumber, formatCurrency, formatTimestamp, formatLocalHour } from '../../utils/formatters';
 import { usePlayback } from '../../hooks/usePlayback';
@@ -64,6 +65,8 @@ function PlaybackPage() {
         { value: 1, label: '1x' },
         { value: 0.5, label: '2x' },
         { value: 0.25, label: '4x' },
+        { value: 0.125, label: '8x' },
+        { value: 0.0625, label: '16x' },
     ];
 
     // Window hours options
@@ -506,39 +509,63 @@ function PlaybackPage() {
                             </div>
                         </div>
 
-                        {/* Dynamic Word Cloud */}
-                        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                            <h3 className="text-lg font-bold text-gray-800 mb-4">☁️ 動態文字雲</h3>
+                        {/* Dynamic Word Cloud & Bar Chart Race Side by Side */}
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+                            {/* Dynamic Word Cloud - 3/5 width */}
+                            <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">☁️ 動態文字雲</h3>
 
-                            {wordcloudLoading && !wordcloudSnapshots.length ? (
-                                <div className="h-[500px] flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
-                                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
-                                </div>
-                            ) : wordcloudError ? (
-                                <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-2xl border border-red-200 text-red-600">
-                                    ⚠️ {wordcloudError}
-                                </div>
-                            ) : (
-                                <DynamicWordCloud
-                                    words={currentWordcloudWords}
-                                    width={900}
-                                    height={500}
-                                    wordLimit={wordLimit}
-                                />
-                            )}
+                                {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                    <div className="h-[500px] flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
+                                    </div>
+                                ) : wordcloudError ? (
+                                    <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-2xl border border-red-200 text-red-600">
+                                        ⚠️ {wordcloudError}
+                                    </div>
+                                ) : (
+                                    <DynamicWordCloud
+                                        words={currentWordcloudWords}
+                                        width={900}
+                                        height={500}
+                                        wordLimit={wordLimit}
+                                    />
+                                )}
 
-                            <div className="mt-2 text-center text-sm text-gray-500">
-                                當前統計區間: {
-                                    currentSnapshot
-                                        ? (() => {
-                                            const end = new Date(currentSnapshot.timestamp);
-                                            const start = new Date(end.getTime() - windowHours * 60 * 60 * 1000);
-                                            const pad = n => n.toString().padStart(2, '0');
-                                            const fmt = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                                            return `${fmt(start)} - ${fmt(end)}`;
-                                        })()
-                                        : '--:-- - --:--'
-                                }
+                                <div className="mt-2 text-center text-sm text-gray-500">
+                                    當前統計區間: {
+                                        currentSnapshot
+                                            ? (() => {
+                                                const end = new Date(currentSnapshot.timestamp);
+                                                const start = new Date(end.getTime() - windowHours * 60 * 60 * 1000);
+                                                const pad = n => n.toString().padStart(2, '0');
+                                                const fmt = d => `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                                                return `${fmt(start)} - ${fmt(end)}`;
+                                            })()
+                                            : '--/-- --:-- - --/-- --:--'
+                                    }
+                                </div>
+                            </div>
+
+                            {/* Bar Chart Race - 2/5 width */}
+                            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">🏆 熱門詞彙排行</h3>
+
+                                {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                    <div className="h-[500px] flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
+                                    </div>
+                                ) : wordcloudError ? (
+                                    <div className="h-[500px] flex items-center justify-center bg-red-50 rounded-2xl border border-red-200 text-red-600">
+                                        ⚠️ {wordcloudError}
+                                    </div>
+                                ) : (
+                                    <BarChartRace
+                                        words={currentWordcloudWords}
+                                        height={500}
+                                        barLimit={10}
+                                    />
+                                )}
                             </div>
                         </div>
                     </>
