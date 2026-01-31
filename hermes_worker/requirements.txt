@@ -1,4 +1,4 @@
-git+https://github.com/Indigo128/chat-downloader.git
+git+https://github.com/Indigo128/chat-downloader.git@3e1400cae1544d617760669a913d241e6601335c
 sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
 requests==2.32.5
