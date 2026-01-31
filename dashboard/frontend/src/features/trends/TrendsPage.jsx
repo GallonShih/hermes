@@ -1,0 +1,434 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import WordGroupCard from './WordGroupCard';
+import TrendChart from './TrendChart';
+import {
+    fetchWordTrendGroups,
+    createWordTrendGroup,
+    updateWordTrendGroup,
+    deleteWordTrendGroup,
+    fetchTrendStats
+} from '../../api/wordTrends';
+import { formatLocalHour } from '../../utils/formatters';
+
+const TrendsPage = () => {
+    // Word Groups state
+    const [groups, setGroups] = useState([]);
+    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [visibleGroups, setVisibleGroups] = useState(new Set());
+    const [loadingGroups, setLoadingGroups] = useState(true);
+
+    // Chart ordering state
+    const [chartOrder, setChartOrder] = useState([]);
+    const [draggedId, setDraggedId] = useState(null);
+
+    // Time filter state
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    // Trend data state
+    const [trendData, setTrendData] = useState({});
+    const [loadingTrends, setLoadingTrends] = useState(false);
+
+    // Chart display options
+    const [lineWidth, setLineWidth] = useState(2);
+    const [showPoints, setShowPoints] = useState(true);
+
+    // Load groups on mount
+    useEffect(() => {
+        loadGroups();
+    }, []);
+
+    const loadGroups = async () => {
+        try {
+            setLoadingGroups(true);
+            const data = await fetchWordTrendGroups();
+            setGroups(data);
+            // Default all groups to visible
+            setVisibleGroups(new Set(data.map(g => g.id)));
+            // Initialize chart order
+            setChartOrder(data.map(g => g.id));
+        } catch (err) {
+            console.error('Failed to load groups:', err);
+        } finally {
+            setLoadingGroups(false);
+        }
+    };
+
+    // Load trend data when groups or time filter changes
+    const loadTrendData = useCallback(async () => {
+        const visibleGroupIds = Array.from(visibleGroups);
+        if (visibleGroupIds.length === 0) {
+            setTrendData({});
+            return;
+        }
+
+        try {
+            setLoadingTrends(true);
+
+            let startTime = null;
+            let endTime = null;
+
+            if (startDate) {
+                startTime = new Date(startDate).toISOString();
+            }
+            if (endDate) {
+                const d = new Date(endDate);
+                d.setMinutes(59, 59, 999);
+                endTime = d.toISOString();
+            }
+
+            const result = await fetchTrendStats({
+                groupIds: visibleGroupIds,
+                startTime,
+                endTime
+            });
+
+            // Convert to map for easy lookup
+            const dataMap = {};
+            result.groups.forEach(g => {
+                dataMap[g.group_id] = g;
+            });
+            setTrendData(dataMap);
+        } catch (err) {
+            console.error('Failed to load trend data:', err);
+        } finally {
+            setLoadingTrends(false);
+        }
+    }, [visibleGroups, startDate, endDate]);
+
+    // Trigger trend data load when visible groups or time changes
+    useEffect(() => {
+        if (groups.length > 0 && visibleGroups.size > 0) {
+            loadTrendData();
+        }
+    }, [groups, visibleGroups, loadTrendData]);
+
+    // Handlers
+    const handleSaveGroup = async (groupData) => {
+        if (groupData.id) {
+            // Update existing
+            const updated = await updateWordTrendGroup(groupData.id, groupData);
+            setGroups(prev => prev.map(g => g.id === updated.id ? updated : g));
+        } else {
+            // Create new
+            const created = await createWordTrendGroup(groupData);
+            setGroups(prev => [...prev, created]);
+            setVisibleGroups(prev => new Set([...prev, created.id]));
+            setChartOrder(prev => [...prev, created.id]);
+            setIsAddingNew(false);
+        }
+    };
+
+    const handleDeleteGroup = async (id) => {
+        await deleteWordTrendGroup(id);
+        setGroups(prev => prev.filter(g => g.id !== id));
+        setVisibleGroups(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+        setChartOrder(prev => prev.filter(gid => gid !== id));
+        setTrendData(prev => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+    };
+
+    const handleToggleVisibility = (id) => {
+        setVisibleGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const handleFilter = () => {
+        loadTrendData();
+    };
+
+    const handleClearFilter = () => {
+        setStartDate('');
+        setEndDate('');
+        // Trigger reload with default 24h
+        setTimeout(() => loadTrendData(), 0);
+    };
+
+    // Quick time range setters
+    const setQuickRange = (hours) => {
+        const end = new Date();
+        const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
+        setStartDate(formatLocalHour(start));
+        setEndDate(formatLocalHour(end));
+    };
+
+    // Drag and drop handlers for chart reordering
+    const handleDragStart = (e, id) => {
+        setDraggedId(id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e, id) => {
+        e.preventDefault();
+        if (draggedId === null || draggedId === id) return;
+
+        setChartOrder(prev => {
+            const newOrder = [...prev];
+            const draggedIdx = newOrder.indexOf(draggedId);
+            const targetIdx = newOrder.indexOf(id);
+
+            if (draggedIdx === -1 || targetIdx === -1) return prev;
+
+            newOrder.splice(draggedIdx, 1);
+            newOrder.splice(targetIdx, 0, draggedId);
+
+            return newOrder;
+        });
+    };
+
+    const handleDragEnd = () => {
+        setDraggedId(null);
+    };
+
+    // Get ordered visible groups
+    const orderedVisibleGroups = chartOrder
+        .filter(id => visibleGroups.has(id))
+        .map(id => groups.find(g => g.id === id))
+        .filter(Boolean);
+
+    return (
+        <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
+            <div className="max-w-7xl mx-auto p-4 md:p-8">
+                {/* Header with Navigation */}
+                <header className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h1 className="text-3xl font-bold text-gray-800">📈 詞彙趨勢分析</h1>
+
+                    <div className="flex gap-3">
+                        <Link
+                            to="/"
+                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
+                        >
+                            📊 Dashboard
+                        </Link>
+                        <Link
+                            to="/playback"
+                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
+                        >
+                            ▶️ Playback
+                        </Link>
+                        <Link
+                            to="/trends"
+                            className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all duration-200 hover:shadow-lg"
+                        >
+                            📈 Trends
+                        </Link>
+                        <Link
+                            to="/admin"
+                            className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:shadow-lg"
+                        >
+                            ⚙️ Admin Panel
+                        </Link>
+                    </div>
+                </header>
+
+                {/* Time Filter Section */}
+                <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <label className="text-sm font-semibold text-gray-700">時間範圍:</label>
+
+                        {/* Quick range buttons */}
+                        <button
+                            onClick={() => setQuickRange(24)}
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                        >
+                            24H
+                        </button>
+                        <button
+                            onClick={() => setQuickRange(72)}
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                        >
+                            3天
+                        </button>
+                        <button
+                            onClick={() => setQuickRange(168)}
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                        >
+                            7天
+                        </button>
+
+                        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+                        <input
+                            type="datetime-local"
+                            step="3600"
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            placeholder="開始時間"
+                        />
+                        <span className="text-gray-500 font-medium">→</span>
+                        <input
+                            type="datetime-local"
+                            step="3600"
+                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            max={formatLocalHour(new Date())}
+                            placeholder="結束時間"
+                        />
+                        <button
+                            onClick={handleFilter}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg"
+                        >
+                            🔍 篩選
+                        </button>
+                        {(startDate || endDate) && (
+                            <button
+                                onClick={handleClearFilter}
+                                className="text-red-600 hover:text-red-700 text-sm font-medium underline transition-colors"
+                            >
+                                ✕ 清除
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Word Groups Management Panel */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-white rounded-lg shadow-md p-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-gray-800">詞彙組管理</h2>
+                                <button
+                                    onClick={() => setIsAddingNew(true)}
+                                    disabled={isAddingNew}
+                                    className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                                >
+                                    + 新增
+                                </button>
+                            </div>
+
+                            {loadingGroups ? (
+                                <div className="text-center text-gray-500 py-8">載入中...</div>
+                            ) : (
+                                <>
+                                    {/* New group card */}
+                                    {isAddingNew && (
+                                        <WordGroupCard
+                                            isNew={true}
+                                            onSave={handleSaveGroup}
+                                            onCancel={() => setIsAddingNew(false)}
+                                            isVisible={true}
+                                        />
+                                    )}
+
+                                    {/* Existing groups */}
+                                    {groups.map(group => (
+                                        <WordGroupCard
+                                            key={group.id}
+                                            group={group}
+                                            onSave={handleSaveGroup}
+                                            onDelete={handleDeleteGroup}
+                                            isVisible={visibleGroups.has(group.id)}
+                                            onToggleVisibility={handleToggleVisibility}
+                                        />
+                                    ))}
+
+                                    {groups.length === 0 && !isAddingNew && (
+                                        <div className="text-center text-gray-500 py-8">
+                                            <p className="mb-2">尚無詞彙組</p>
+                                            <p className="text-sm">點擊「+ 新增」建立第一個詞彙組</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Charts Panel */}
+                    <div className="lg:col-span-2">
+                        <div className="bg-gray-50 rounded-lg p-4 min-h-[400px]">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold text-gray-800">趨勢圖表</h2>
+                                <div className="flex items-center gap-4">
+                                    {/* Line width control */}
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-xs text-gray-500">線條粗細:</label>
+                                        <select
+                                            value={lineWidth}
+                                            onChange={(e) => setLineWidth(Number(e.target.value))}
+                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                        >
+                                            <option value={1}>細 (1px)</option>
+                                            <option value={2}>中 (2px)</option>
+                                            <option value={3}>粗 (3px)</option>
+                                            <option value={4}>特粗 (4px)</option>
+                                        </select>
+                                    </div>
+                                    {/* Show points toggle */}
+                                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={showPoints}
+                                            onChange={(e) => setShowPoints(e.target.checked)}
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        顯示資料點
+                                    </label>
+                                    {loadingTrends && (
+                                        <span className="text-sm text-gray-500">更新中...</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {visibleGroups.size === 0 ? (
+                                <div className="text-center text-gray-500 py-16">
+                                    <p className="text-4xl mb-4">📊</p>
+                                    <p>請選擇要顯示的詞彙組</p>
+                                    <p className="text-sm mt-2">在左側點擊 👁️ 圖示來顯示/隱藏圖表</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {orderedVisibleGroups.map(group => {
+                                        const data = trendData[group.id];
+                                        return (
+                                            <div
+                                                key={group.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, group.id)}
+                                                onDragOver={(e) => handleDragOver(e, group.id)}
+                                                onDragEnd={handleDragEnd}
+                                                className={`transition-opacity ${draggedId === group.id ? 'opacity-50' : ''}`}
+                                            >
+                                                <TrendChart
+                                                    name={group.name}
+                                                    color={group.color}
+                                                    data={data?.data || []}
+                                                    startTime={startDate ? new Date(startDate).toISOString() : null}
+                                                    endTime={endDate ? new Date(endDate).toISOString() : null}
+                                                    lineWidth={lineWidth}
+                                                    showPoints={showPoints}
+                                                    dragHandleProps={{
+                                                        onMouseDown: (e) => e.stopPropagation()
+                                                    }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default TrendsPage;

@@ -338,6 +338,7 @@ function PlaybackPage() {
                     <div className="flex gap-3">
                         <Link to="/" className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 hover:shadow-lg">📊 Dashboard</Link>
                         <Link to="/playback" className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg">▶️ Playback</Link>
+                        <Link to="/trends" className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 hover:shadow-lg">📈 Trends</Link>
                         <Link to="/admin" className="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-50 border border-gray-200 hover:shadow-lg">⚙️ Admin Panel</Link>
                     </div>
                 </div>
