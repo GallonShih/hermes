@@ -40,6 +40,7 @@ The system captures chat messages from live streams, processes them through NLP 
 | 🔄 **ETL Processing** | Chinese tokenization with Jieba, emoji extraction, word replacement pipelines |
 | 🤖 **AI-Powered Discovery** | Gemini API (`gemini-2.5-flash-lite`) analyzes chat to discover new memes, slang, and typos automatically |
 | 📊 **Interactive Dashboard** | React-based dashboard with word cloud, playback timeline, and admin management |
+| 📈 **Word Trend Analysis** | Track specific word usage trends over time with customizable word groups |
 | 🛠️ **Admin Panel** | Approve/reject AI-discovered words, manage dictionaries, configure settings |
 
 ## 📸 Gallery
@@ -123,9 +124,11 @@ hermes/
 ├── dashboard/
 │   ├── backend/         # FastAPI REST API
 │   │   ├── app/routers/ # API endpoints (chat, wordcloud, admin, etc.)
+│   │   │   └── word_trends.py # Word trend analysis endpoints
 │   │   └── app/models.py# SQLAlchemy models
 │   └── frontend/        # React + Vite + TailwindCSS
 │       └── src/features/# Feature-based components (playback, admin, etc.)
+│           └── trends/  # Word trends analysis UI
 │
 ├── airflow/
 │   └── dags/

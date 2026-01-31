@@ -117,6 +117,7 @@ See `docs/SETUP.md` for detailed first-time setup instructions including Airflow
 - `chat_messages`: Raw messages from live chat (unique `message_id` index)
 - `stream_stats`: Periodic statistics snapshots (viewers, likes, etc.)
 - `processed_chat_messages`: Tokenized messages with emojis extracted
+- `word_trend_groups`: User-defined word groups for trend analysis
 
 ### Text Analysis Tables
 - `special_words`: Custom dictionary for important words (preserved during tokenization)
@@ -171,6 +172,7 @@ Structure:
 - `app/routers/`: API endpoints organized by feature
   - `chat.py`: Chat message queries
   - `stats.py`: Stream statistics
+  - `word_trends.py`: Word trend analysis endpoints
   - `wordcloud.py`: Word frequency aggregation
   - `playback.py`: Time-range message playback
   - `admin_*.py`: Admin panel operations (word approval, settings, currency management)
@@ -186,6 +188,7 @@ Entry point: `dashboard/frontend/src/main.jsx`
 Structure:
 - `src/features/`: Feature-based modules
   - `dashboard/`: Main dashboard with word cloud visualization
+  - `trends/`: Word trend analysis
   - `playback/`: Timeline-based message playback
   - `admin/`: Admin panel for word approval and settings management
   - `wordcloud/`: Word cloud components
