@@ -222,4 +222,4 @@ docker-compose logs postgres
 3. 🎯 Review AI-discovered words in Dashboard Admin panel
 4. 📊 Explore data in Dashboard or via API
 
-For development commands, see [CLAUDE.md](./CLAUDE.md).
+For development commands, see [CLAUDE.md](../CLAUDE.md).
