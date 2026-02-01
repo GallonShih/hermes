@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowsRightLeftIcon, ArrowRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
+import { useToast } from '../../components/common/Toast';
+import ConfirmModal from '../admin/ConfirmModal';
 
 const ReplacementWordlistPanel = ({
     selectedId,
@@ -13,6 +15,8 @@ const ReplacementWordlistPanel = ({
     target,
     onTargetChange
 }) => {
+    const toast = useToast();
+
     // Hooks
     const {
         savedWordlists,
@@ -28,6 +32,15 @@ const ReplacementWordlistPanel = ({
     const [newListName, setNewListName] = useState('');
     const [createError, setCreateError] = useState('');
     const [updateSuccess, setUpdateSuccess] = useState(false);
+
+    // Confirm Modal State
+    const [modalConfig, setModalConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDestructive: false
+    });
 
     // Reset modified state when list selection changes
     useEffect(() => {
@@ -48,10 +61,19 @@ const ReplacementWordlistPanel = ({
         setIsModified(true);
     };
 
-    const handleRemoveRule = (ruleSource) => {
-        const newRules = rules.filter(r => r.source !== ruleSource);
-        onRulesChange(newRules);
-        setIsModified(true);
+    const confirmRemoveRule = (ruleSource) => {
+        setModalConfig({
+            isOpen: true,
+            title: '移除取代規則',
+            message: `確定要移除「${ruleSource}」的取代規則嗎？`,
+            isDestructive: true,
+            onConfirm: () => {
+                const newRules = rules.filter(r => r.source !== ruleSource);
+                onRulesChange(newRules);
+                setIsModified(true);
+                setModalConfig(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleSaveChanges = async () => {
@@ -84,14 +106,26 @@ const ReplacementWordlistPanel = ({
         }
     };
 
-    const handleDeleteList = async () => {
-        if (!selectedId || !window.confirm('確定要刪除此取代清單？')) return;
-        try {
-            await removeWordlist(selectedId);
-            if (onSelect) onSelect(null);
-        } catch (err) {
-            console.error(err);
-        }
+    const confirmDeleteList = () => {
+        if (!selectedId) return;
+        setModalConfig({
+            isOpen: true,
+            title: '刪除取代清單',
+            message: '確定要刪除此取代清單？此操作無法復原。',
+            isDestructive: true,
+            onConfirm: async () => {
+                try {
+                    await removeWordlist(selectedId);
+                    if (onSelect) onSelect(null);
+                    toast.success('取代清單已刪除');
+                } catch (err) {
+                    console.error(err);
+                    toast.error(`刪除失敗: ${err.message}`);
+                } finally {
+                    setModalConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            }
+        });
     };
 
     const currentListName = savedWordlists.find(w => w.id === selectedId)?.name;
@@ -133,8 +167,8 @@ const ReplacementWordlistPanel = ({
                                 另存
                             </button>
                             <button
-                                onClick={handleDeleteList}
-                                className="text-red-600 border border-red-200 px-2 py-1 rounded text-xs hover:bg-red-50"
+                                onClick={confirmDeleteList}
+                                className="text-red-600 border border-red-200 px-2 py-1 rounded text-xs hover:bg-red-50 cursor-pointer"
                             >
                                 刪除
                             </button>
@@ -189,10 +223,11 @@ const ReplacementWordlistPanel = ({
                             <ArrowRightIcon className="w-3 h-3 text-purple-400" />
                             <span className="font-medium text-gray-800">{rule.target}</span>
                             <button
-                                onClick={() => handleRemoveRule(rule.source)}
-                                className="text-red-400 hover:text-red-600 ml-1 cursor-pointer"
+                                type="button"
+                                onClick={() => confirmRemoveRule(rule.source)}
+                                className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-0.5 ml-1 cursor-pointer transition-colors"
                             >
-                                <XMarkIcon className="w-3 h-3" />
+                                <XMarkIcon className="w-4 h-4" />
                             </button>
                         </div>
                     ))}
@@ -230,6 +265,17 @@ const ReplacementWordlistPanel = ({
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={modalConfig.isOpen}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                onConfirm={modalConfig.onConfirm}
+                onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                isDestructive={modalConfig.isDestructive}
+                confirmText="確定"
+                cancelText="取消"
+            />
         </div>
     );
 };

@@ -11,10 +11,14 @@ import {
 import { useWordFrequency } from '../../hooks/useWordFrequency';
 import { useWordlists } from '../../hooks/useWordlists';
 import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
+import { useToast } from '../../components/common/Toast';
+import ConfirmModal from '../admin/ConfirmModal';
 
 import ReplacementWordlistPanel from './ReplacementWordlistPanel';
 
 function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
+    const toast = useToast();
+
     // Local State for Config Tab
     const [configTab, setConfigTab] = useState('exclusion'); // 'exclusion' | 'replacement'
     const [selectedReplacementWordlistId, setSelectedReplacementWordlistId] = useState(null);
@@ -43,6 +47,15 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
     const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
     const [seedInput, setSeedInput] = useState('');
 
+    // Confirm Modal State
+    const [modalConfig, setModalConfig] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        isDestructive: false
+    });
+
     // Fetch frequency on change
     useEffect(() => {
         getWordFrequency({
@@ -64,9 +77,18 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         }
     };
 
-    const handleRemoveExcludeWord = (word) => {
-        setExcludeWords(excludeWords.filter(w => w !== word));
-        setIsModified(true);
+    const confirmRemoveWord = (word) => {
+        setModalConfig({
+            isOpen: true,
+            title: '移除排除詞彙',
+            message: `確定要移除「${word}」嗎？`,
+            isDestructive: true,
+            onConfirm: () => {
+                setExcludeWords(prev => prev.filter(w => w !== word));
+                setIsModified(true);
+                setModalConfig(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     // Wordlist handling
@@ -131,16 +153,28 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
         }
     };
 
-    const handleDeleteWordlist = async () => {
-        if (!selectedWordlistId || !window.confirm('確定要刪除？')) return;
-        try {
-            await removeWordlist(selectedWordlistId);
-            setSelectedWordlistId(null);
-            setExcludeWords([]);
-            setIsModified(false);
-        } catch (err) {
-            console.error(err);
-        }
+    const confirmDeleteWordlist = () => {
+        if (!selectedWordlistId) return;
+        setModalConfig({
+            isOpen: true,
+            title: '刪除排除清單',
+            message: '確定要刪除此排除清單？此操作無法復原。',
+            isDestructive: true,
+            onConfirm: async () => {
+                try {
+                    await removeWordlist(selectedWordlistId);
+                    setSelectedWordlistId(null);
+                    setExcludeWords([]);
+                    setIsModified(false);
+                    toast.success('排除清單已刪除');
+                } catch (err) {
+                    console.error(err);
+                    toast.error(`刪除失敗: ${err.message}`);
+                } finally {
+                    setModalConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            }
+        });
     };
 
     // Visualization helpers
@@ -338,7 +372,7 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                                         </button>
                                     )}
                                     <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs">另存</button>
-                                    {selectedWordlistId && <button onClick={handleDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs">刪除</button>}
+                                    {selectedWordlistId && <button onClick={confirmDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs cursor-pointer">刪除</button>}
                                 </div>
                             </div>
                             <div className="flex gap-2 mb-2">
@@ -349,8 +383,12 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                                 {excludeWords.map(w => (
                                     <span key={w} className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm flex items-center gap-1">
                                         {w}
-                                        <button onClick={() => handleRemoveExcludeWord(w)} className="cursor-pointer">
-                                            <XMarkIcon className="w-3 h-3" />
+                                        <button
+                                            type="button"
+                                            onClick={() => confirmRemoveWord(w)}
+                                            className="cursor-pointer hover:bg-red-200 rounded p-0.5 transition-colors"
+                                        >
+                                            <XMarkIcon className="w-4 h-4" />
                                         </button>
                                     </span>
                                 ))}
@@ -371,6 +409,17 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                     )}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={modalConfig.isOpen}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                onConfirm={modalConfig.onConfirm}
+                onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                isDestructive={modalConfig.isDestructive}
+                confirmText="確定"
+                cancelText="取消"
+            />
         </div>
     );
 }

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
 
 const CurrencyRateManager = () => {
+    const toast = useToast();
     const [rates, setRates] = useState([]);
     const [unknownCurrencies, setUnknownCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Form state
     const [currency, setCurrency] = useState('');
@@ -47,10 +50,11 @@ const CurrencyRateManager = () => {
         e.preventDefault();
 
         if (!currency || !rateToTwd) {
-            alert('Please fill in currency code and rate');
+            toast.warning('Please fill in currency code and rate');
             return;
         }
 
+        setIsSaving(true);
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates`, {
                 method: 'POST',
@@ -65,7 +69,7 @@ const CurrencyRateManager = () => {
             const data = await response.json();
 
             if (data.success) {
-                alert(data.message);
+                toast.success(data.message);
                 // Reset form
                 setCurrency('');
                 setRateToTwd('');
@@ -75,11 +79,13 @@ const CurrencyRateManager = () => {
                 fetchRates();
                 fetchUnknownCurrencies();
             } else {
-                alert('Failed to save rate');
+                toast.error('Failed to save rate');
             }
         } catch (err) {
             console.error('Error saving rate:', err);
-            alert('Error saving rate');
+            toast.error('Error saving rate');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -178,9 +184,10 @@ const CurrencyRateManager = () => {
                     <div className="flex gap-2">
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                            disabled={isSaving}
+                            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
-                            {editingCurrency ? 'Update' : 'Add'} Rate
+                            {isSaving ? 'Saving...' : (editingCurrency ? 'Update' : 'Add')} {!isSaving && 'Rate'}
                         </button>
                         {editingCurrency && (
                             <button

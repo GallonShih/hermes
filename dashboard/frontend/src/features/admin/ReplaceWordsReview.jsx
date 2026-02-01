@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { TrashIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
 import ConfirmModal from './ConfirmModal';
 import ValidationResultModal from './ValidationResultModal';
 import AddReplaceWordForm from './AddReplaceWordForm';
+import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
 
 const ReplaceWordsReview = () => {
+    const toast = useToast();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState(null);
     const [page, setPage] = useState(0);
     const [total, setTotal] = useState(0);
@@ -131,6 +134,7 @@ const ReplaceWordsReview = () => {
 
         console.log(`Proceeding with ${action} for ids:`, ids);
 
+        setIsProcessing(true);
         try {
             let url, method, body;
 
@@ -162,18 +166,20 @@ const ReplaceWordsReview = () => {
             if (result.success) {
                 fetchItems(); // Refresh list
             } else {
-                alert(`Failed: ${result.message || 'Unknown error'}`);
+                toast.error(`Failed: ${result.message || 'Unknown error'}`);
                 if (result.validation) {
-                    alert(`Validation errors: ${JSON.stringify(result.validation)}`);
+                    toast.error(`Validation errors: ${JSON.stringify(result.validation)}`);
                 }
                 if (result.errors) {
-                    alert(`Some items failed: \n${result.errors.map(e => `ID ${e.id}: ${e.error}`).join('\n')}`);
+                    toast.error(`Some items failed: ${result.errors.length} errors`);
                     fetchItems(); // Refresh to show what succeeded
                 }
             }
 
         } catch (err) {
-            alert(`Error processing request: ${err.message}`);
+            toast.error(`Error processing request: ${err.message}`);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -264,28 +270,29 @@ const ReplaceWordsReview = () => {
             <div className="flex justify-between items-center mb-4">
                 <div className="space-x-2">
                     <button
-                        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+                        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 cursor-pointer"
                         onClick={() => setShowAddForm(!showAddForm)}
                     >
-                        {showAddForm ? '關閉表單' : '➕ 新增詞彙'}
+                        {showAddForm ? '關閉表單' : <><PlusIcon className="w-4 h-4 inline mr-1" />新增詞彙</>}
                     </button>
                     <button
-                        className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                        disabled={selectedIds.length === 0}
+                        className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('approve')}
                     >
-                        Approve Selected ({selectedIds.length})
+                        {isProcessing ? 'Processing...' : `Approve Selected (${selectedIds.length})`}
                     </button>
                     <button
-                        className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                        disabled={selectedIds.length === 0}
+                        className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('reject')}
                     >
-                        Reject Selected ({selectedIds.length})
+                        {isProcessing ? 'Processing...' : `Reject Selected (${selectedIds.length})`}
                     </button>
                     <button
-                        className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900"
+                        className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         onClick={() => confirmAction('clear')}
+                        disabled={isProcessing}
                     >
                         <TrashIcon className="w-4 h-4 inline mr-1" />
                         Clear All

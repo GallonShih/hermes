@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import ValidationResultModal from './ValidationResultModal';
+import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
 
 const AddSpecialWordForm = ({ onSuccess, onCancel }) => {
+    const toast = useToast();
     const [word, setWord] = useState('');
     const [isValidated, setIsValidated] = useState(false);
     const [validationResult, setValidationResult] = useState({
@@ -54,7 +56,7 @@ const AddSpecialWordForm = ({ onSuccess, onCancel }) => {
         e.preventDefault();
 
         if (!isValidated) {
-            alert('請先驗證詞彙是否符合標準');
+            toast.warning('請先驗證詞彙是否符合標準');
             return;
         }
 
@@ -70,13 +72,13 @@ const AddSpecialWordForm = ({ onSuccess, onCancel }) => {
             const result = await res.json();
 
             if (result.success) {
-                alert('詞彙新增成功！');
+                toast.success('詞彙新增成功！');
                 onSuccess();
             } else {
-                alert(`新增失敗: ${result.message}`);
+                toast.error(`新增失敗: ${result.message}`);
             }
         } catch (err) {
-            alert(`新增失敗: ${err.message}`);
+            toast.error(`新增失敗: ${err.message}`);
         } finally {
             setIsSubmitting(false);
         }

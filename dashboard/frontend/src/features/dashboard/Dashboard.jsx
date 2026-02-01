@@ -9,6 +9,7 @@ import {
     MagnifyingGlassIcon,
     XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useToast } from '../../components/common/Toast';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
 import { fetchViewersStats, fetchCommentsStats } from '../../api/stats';
 import { formatLocalHour } from '../../utils/formatters';
@@ -21,6 +22,7 @@ import EmojiStatsPanel from './EmojiStatsPanel';
 registerChartComponents();
 
 function Dashboard() {
+    const toast = useToast();
     const [viewData, setViewData] = useState([]);
     const [commentData, setCommentData] = useState([]);
     const [barFlash, setBarFlash] = useState(false);
@@ -97,7 +99,7 @@ function Dashboard() {
 
     const handleFilter = () => {
         if (!startDate) {
-            alert('Please select start time');
+            toast.warning('Please select start time');
             return;
         }
 
