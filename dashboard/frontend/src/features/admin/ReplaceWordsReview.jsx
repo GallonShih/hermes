@@ -3,6 +3,7 @@ import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
 import ConfirmModal from './ConfirmModal';
 import ValidationResultModal from './ValidationResultModal';
 import AddReplaceWordForm from './AddReplaceWordForm';
+import WordDetailModal from './WordDetailModal';
 import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
 
@@ -36,6 +37,13 @@ const ReplaceWordsReview = () => {
         conflicts: []
     });
     const [showAddForm, setShowAddForm] = useState(false);
+    const [wordDetailModal, setWordDetailModal] = useState({
+        isOpen: false,
+        word: '',
+        wordType: 'replace',
+        sourceWord: '',
+        targetWord: ''
+    });
     const limit = 20;
 
     const fetchItems = async () => {
@@ -349,8 +357,34 @@ const ReplaceWordsReview = () => {
                                         onChange={() => handleSelect(item.id)}
                                     />
                                 </td>
-                                <td className="px-4 py-2 border-b">{item.source_word}</td>
-                                <td className="px-4 py-2 border-b">{item.target_word}</td>
+                                <td className="px-4 py-2 border-b">
+                                    <button
+                                        onClick={() => setWordDetailModal({
+                                            isOpen: true,
+                                            word: item.source_word,
+                                            wordType: 'replace',
+                                            sourceWord: item.source_word,
+                                            targetWord: item.target_word
+                                        })}
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
+                                    >
+                                        {item.source_word}
+                                    </button>
+                                </td>
+                                <td className="px-4 py-2 border-b">
+                                    <button
+                                        onClick={() => setWordDetailModal({
+                                            isOpen: true,
+                                            word: item.target_word,
+                                            wordType: 'replace',
+                                            sourceWord: item.source_word,
+                                            targetWord: item.target_word
+                                        })}
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
+                                    >
+                                        {item.target_word}
+                                    </button>
+                                </td>
                                 <td className="px-4 py-2 border-b">
                                     <span className={`px-2 py-1 rounded text-xs text-white ${item.confidence_score > 0.8 ? 'bg-green-500' :
                                         item.confidence_score > 0.5 ? 'bg-yellow-500' : 'bg-red-500'
@@ -427,6 +461,15 @@ const ReplaceWordsReview = () => {
                 isValid={validationResult.isValid}
                 conflicts={validationResult.conflicts}
                 onClose={() => setValidationResult(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <WordDetailModal
+                isOpen={wordDetailModal.isOpen}
+                onClose={() => setWordDetailModal(prev => ({ ...prev, isOpen: false }))}
+                word={wordDetailModal.word}
+                wordType={wordDetailModal.wordType}
+                sourceWord={wordDetailModal.sourceWord}
+                targetWord={wordDetailModal.targetWord}
             />
         </div>
     );

@@ -3,6 +3,7 @@ import { TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
 import ConfirmModal from './ConfirmModal';
 import ValidationResultModal from './ValidationResultModal';
 import AddSpecialWordForm from './AddSpecialWordForm';
+import WordDetailModal from './WordDetailModal';
 import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
 
@@ -34,6 +35,11 @@ const SpecialWordsReview = () => {
         conflicts: []
     });
     const [showAddForm, setShowAddForm] = useState(false);
+    const [wordDetailModal, setWordDetailModal] = useState({
+        isOpen: false,
+        word: '',
+        wordType: 'special'
+    });
     const limit = 20;
 
     const fetchItems = async () => {
@@ -360,7 +366,18 @@ const SpecialWordsReview = () => {
                                         onChange={() => handleSelect(item.id)}
                                     />
                                 </td>
-                                <td className="px-4 py-2 border-b font-bold">{item.word}</td>
+                                <td className="px-4 py-2 border-b font-bold">
+                                    <button
+                                        onClick={() => setWordDetailModal({
+                                            isOpen: true,
+                                            word: item.word,
+                                            wordType: 'special'
+                                        })}
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
+                                    >
+                                        {item.word}
+                                    </button>
+                                </td>
                                 <td className="px-4 py-2 border-b">
                                     <span className="bg-gray-100 px-2 py-1 rounded text-xs">{item.word_type}</span>
                                 </td>
@@ -430,6 +447,13 @@ const SpecialWordsReview = () => {
                 isValid={validationResult.isValid}
                 conflicts={validationResult.conflicts}
                 onClose={() => setValidationResult(prev => ({ ...prev, isOpen: false }))}
+            />
+
+            <WordDetailModal
+                isOpen={wordDetailModal.isOpen}
+                onClose={() => setWordDetailModal(prev => ({ ...prev, isOpen: false }))}
+                word={wordDetailModal.word}
+                wordType={wordDetailModal.wordType}
             />
         </div>
     );
