@@ -47,32 +47,32 @@ const ConfirmModal = ({
         >
             <div
                 ref={modalRef}
-                className="glass-modal rounded-2xl max-w-md w-full overflow-hidden transform transition-all"
+                className="glass-modal rounded-xl sm:rounded-2xl max-w-md w-full overflow-hidden transform transition-all"
             >
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     <h3
                         id="modal-title"
-                        className="text-lg font-bold text-gray-900 mb-2"
+                        className="text-base sm:text-lg font-bold text-gray-900 mb-2"
                     >
                         {title}
                     </h3>
                     <p
                         id="modal-description"
-                        className="text-gray-600 mb-6"
+                        className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6"
                     >
                         {message}
                     </p>
-                    <div className="flex justify-end space-x-3">
+                    <div className="flex justify-end space-x-2 sm:space-x-3">
                         <button
                             ref={cancelButtonRef}
                             onClick={onCancel}
-                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                            className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                         >
                             {cancelText}
                         </button>
                         <button
                             onClick={onConfirm}
-                            className={`px-4 py-2 text-white rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            className={`px-3 sm:px-4 py-1.5 sm:py-2 text-sm text-white rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                                 isDestructive
                                     ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                                     : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'

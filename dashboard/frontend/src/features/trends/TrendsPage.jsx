@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import {
-    ChartBarIcon,
-    PlayIcon,
     ArrowTrendingUpIcon,
-    Cog6ToothIcon,
     MagnifyingGlassIcon,
     XMarkIcon,
     EyeIcon,
+    ChartBarIcon,
 } from '@heroicons/react/24/outline';
+import Navigation from '../../components/common/Navigation';
 import WordGroupCard from './WordGroupCard';
 import TrendChart from './TrendChart';
 import {
@@ -212,84 +210,54 @@ const TrendsPage = () => {
         <div className="min-h-screen font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {/* Header with Navigation */}
-                <header className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <h1 className="flex items-center gap-2 text-3xl font-bold text-white drop-shadow-lg">
-                        <ArrowTrendingUpIcon className="w-8 h-8" />
+                <header className="flex justify-between items-center mb-6 relative">
+                    <h1 className="flex items-center gap-2 text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">
+                        <ArrowTrendingUpIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                         <span>詞彙趨勢分析</span>
                     </h1>
-
-                    <div className="flex gap-3">
-                        <Link
-                            to="/"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <ChartBarIcon className="w-5 h-5" />
-                            <span>Dashboard</span>
-                        </Link>
-                        <Link
-                            to="/playback"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <PlayIcon className="w-5 h-5" />
-                            <span>Playback</span>
-                        </Link>
-                        <Link
-                            to="/trends"
-                            className="flex items-center gap-2 px-4 py-2 bg-white/90 text-indigo-700 font-semibold rounded-xl shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 cursor-pointer backdrop-blur-sm border border-white/50"
-                        >
-                            <ArrowTrendingUpIcon className="w-5 h-5" />
-                            <span>Trends</span>
-                        </Link>
-                        <Link
-                            to="/admin"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <Cog6ToothIcon className="w-5 h-5" />
-                            <span>Admin Panel</span>
-                        </Link>
-                    </div>
+                    <Navigation />
                 </header>
 
                 {/* Time Filter Section */}
-                <div className="glass-card p-4 rounded-2xl mb-6">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <label className="text-sm font-semibold text-gray-700">時間範圍:</label>
+                <div className="glass-card p-3 sm:p-4 rounded-2xl mb-4 sm:mb-6">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700 w-full sm:w-auto">時間範圍:</label>
 
                         {/* Quick range buttons */}
                         <button
                             onClick={() => setQuickRange(24)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             24H
                         </button>
                         <button
                             onClick={() => setQuickRange(72)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             3天
                         </button>
                         <button
                             onClick={() => setQuickRange(168)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             7天
                         </button>
 
-                        <div className="w-px h-6 bg-gray-300 mx-1" />
+                        <div className="hidden sm:block w-px h-6 bg-gray-300 mx-1" />
 
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 sm:flex-none min-w-0"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
                             placeholder="開始時間"
                         />
-                        <span className="text-gray-500 font-medium">→</span>
+                        <span className="text-gray-500 font-medium text-sm">→</span>
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 sm:flex-none min-w-0"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                             max={formatLocalHour(new Date())}
@@ -297,10 +265,10 @@ const TrendsPage = () => {
                         />
                         <button
                             onClick={handleFilter}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer"
+                            className="flex items-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-6 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer"
                         >
                             <MagnifyingGlassIcon className="w-4 h-4" />
-                            <span>篩選</span>
+                            <span className="hidden sm:inline">篩選</span>
                         </button>
                         {(startDate || endDate) && (
                             <button
@@ -315,12 +283,12 @@ const TrendsPage = () => {
                 </div>
 
                 {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                     {/* Word Groups Management Panel */}
-                    <div className="lg:col-span-1">
-                        <div className="glass-card rounded-2xl p-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-gray-800">詞彙組管理</h2>
+                    <div className="lg:col-span-1 order-2 lg:order-1">
+                        <div className="glass-card rounded-2xl p-3 sm:p-4">
+                            <div className="flex items-center justify-between mb-3 sm:mb-4">
+                                <h2 className="text-base sm:text-lg font-semibold text-gray-800">詞彙組管理</h2>
                                 <button
                                     onClick={() => setIsAddingNew(true)}
                                     disabled={isAddingNew}
@@ -371,18 +339,18 @@ const TrendsPage = () => {
                     </div>
 
                     {/* Charts Panel */}
-                    <div className="lg:col-span-2">
-                        <div className="glass-panel rounded-2xl p-4 min-h-[400px]">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold text-gray-800">趨勢圖表</h2>
-                                <div className="flex items-center gap-4">
+                    <div className="lg:col-span-2 order-1 lg:order-2">
+                        <div className="glass-panel rounded-2xl p-3 sm:p-4 min-h-[300px] sm:min-h-[400px]">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
+                                <h2 className="text-base sm:text-lg font-semibold text-gray-800">趨勢圖表</h2>
+                                <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                                     {/* Line width control */}
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-xs text-gray-500">線條粗細:</label>
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                        <label className="text-xs text-gray-500 hidden sm:inline">線條粗細:</label>
                                         <select
                                             value={lineWidth}
                                             onChange={(e) => setLineWidth(Number(e.target.value))}
-                                            className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                            className="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm"
                                         >
                                             <option value={1}>細 (1px)</option>
                                             <option value={2}>中 (2px)</option>

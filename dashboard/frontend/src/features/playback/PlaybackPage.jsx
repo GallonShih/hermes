@@ -1,24 +1,21 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
-import { Link } from 'react-router-dom';
 import { Responsive, useContainerWidth } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import {
-    ChartBarIcon,
     PlayIcon,
     PauseIcon,
-    ArrowTrendingUpIcon,
-    Cog6ToothIcon,
     CloudIcon,
     ClockIcon,
     ArrowPathIcon,
     ExclamationTriangleIcon,
     TrophyIcon,
-    CurrencyDollarIcon,
-    NoSymbolIcon,
+    ArrowTrendingUpIcon,
+    ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
+import Navigation from '../../components/common/Navigation';
 import DynamicWordCloud from '../../components/common/DynamicWordCloud';
 import BarChartRace from '../../components/common/BarChartRace';
 import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
@@ -347,29 +344,12 @@ function PlaybackPage() {
         <div className="min-h-screen font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-                    <h1 className="flex items-center gap-2 text-3xl font-bold text-white drop-shadow-lg mb-4 md:mb-0">
-                        <PlayIcon className="w-8 h-8" />
+                <div className="flex justify-between items-center mb-6 relative">
+                    <h1 className="flex items-center gap-2 text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">
+                        <PlayIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                         <span>Playback Mode</span>
                     </h1>
-                    <div className="flex gap-3">
-                        <Link to="/" className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer">
-                            <ChartBarIcon className="w-5 h-5" />
-                            <span>Dashboard</span>
-                        </Link>
-                        <Link to="/playback" className="flex items-center gap-2 px-4 py-2 bg-white/90 text-indigo-700 font-semibold rounded-xl shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 cursor-pointer backdrop-blur-sm border border-white/50">
-                            <PlayIcon className="w-5 h-5" />
-                            <span>Playback</span>
-                        </Link>
-                        <Link to="/trends" className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer">
-                            <ArrowTrendingUpIcon className="w-5 h-5" />
-                            <span>Trends</span>
-                        </Link>
-                        <Link to="/admin" className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer">
-                            <Cog6ToothIcon className="w-5 h-5" />
-                            <span>Admin Panel</span>
-                        </Link>
-                    </div>
+                    <Navigation />
                 </div>
 
                 {/* Configuration Panel */}

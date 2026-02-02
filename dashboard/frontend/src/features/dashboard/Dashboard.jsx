@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Chart } from 'react-chartjs-2';
-import { Link } from 'react-router-dom';
 import {
-    ChartBarIcon,
-    PlayIcon,
-    ArrowTrendingUpIcon,
-    Cog6ToothIcon,
     MagnifyingGlassIcon,
     XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useToast } from '../../components/common/Toast';
+import Navigation from '../../components/common/Navigation';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
 import { fetchViewersStats, fetchCommentsStats } from '../../api/stats';
 import { formatLocalHour } from '../../utils/formatters';
@@ -316,64 +312,34 @@ function Dashboard() {
         <div className="min-h-screen font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {/* Header with Title and Navigation */}
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-white mb-4 md:mb-0 drop-shadow-lg">Hermes 監控儀表板</h1>
-
-                    <div className="flex gap-3">
-                        <Link
-                            to="/"
-                            className="flex items-center gap-2 px-4 py-2 bg-white/90 text-indigo-700 font-semibold rounded-xl shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200 cursor-pointer backdrop-blur-sm border border-white/50"
-                        >
-                            <ChartBarIcon className="w-5 h-5" />
-                            <span>Dashboard</span>
-                        </Link>
-                        <Link
-                            to="/playback"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <PlayIcon className="w-5 h-5" />
-                            <span>Playback</span>
-                        </Link>
-                        <Link
-                            to="/trends"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <ArrowTrendingUpIcon className="w-5 h-5" />
-                            <span>Trends</span>
-                        </Link>
-                        <Link
-                            to="/admin"
-                            className="flex items-center gap-2 px-4 py-2 glass-button text-gray-700 font-semibold rounded-xl cursor-pointer"
-                        >
-                            <Cog6ToothIcon className="w-5 h-5" />
-                            <span>Admin Panel</span>
-                        </Link>
-                    </div>
+                <div className="flex justify-between items-center mb-6 relative">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">Hermes 監控儀表板</h1>
+                    <Navigation />
                 </div>
 
                 {/* Time Filter Section */}
-                <div className="glass-card p-4 rounded-2xl mb-6">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <label className="text-sm font-semibold text-gray-700">時間範圍:</label>
+                <div className="glass-card p-3 sm:p-4 rounded-2xl mb-4 sm:mb-6">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700 w-full sm:w-auto">時間範圍:</label>
                         <button
                             onClick={() => setStartDate(formatLocalHour(new Date(Date.now() - 12 * 60 * 60 * 1000)))}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             -12H
                         </button>
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 sm:flex-none min-w-0"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
                             placeholder="開始時間"
                         />
-                        <span className="text-gray-500 font-medium">→</span>
+                        <span className="text-gray-500 font-medium text-sm">→</span>
                         <input
                             type="datetime-local"
                             step="3600"
-                            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 sm:flex-none min-w-0"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                             max={formatLocalHour(new Date())}
@@ -381,16 +347,16 @@ function Dashboard() {
                         />
                         <button
                             onClick={() => setEndDate(formatLocalHour(new Date()))}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="bg-gray-200 hover:bg-gray-300 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             現在
                         </button>
                         <button
                             onClick={handleFilter}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            className="flex items-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-6 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             <MagnifyingGlassIcon className="w-4 h-4" />
-                            <span>篩選</span>
+                            <span className="hidden sm:inline">篩選</span>
                         </button>
                         {(startDate || endDate) && (
                             <button
@@ -417,11 +383,11 @@ function Dashboard() {
                     </div>
                 </div>
 
-                <div className="glass-card p-6 rounded-2xl h-[80vh] flex flex-col relative group">
+                <div className="glass-card p-4 sm:p-6 rounded-2xl h-[60vh] sm:h-[70vh] md:h-[80vh] flex flex-col relative group">
                     {/* Digital Clock */}
-                    <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300 opacity-100 pointer-events-none">
-                        <div className="bg-white/90 backdrop-blur-sm px-6 py-2 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-gray-100">
-                            <span className="font-mono text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-wider">
+                    <div className="absolute top-4 sm:top-6 left-1/2 transform -translate-x-1/2 z-10 transition-opacity duration-300 opacity-100 pointer-events-none">
+                        <div className="bg-white/90 backdrop-blur-sm px-3 sm:px-6 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-gray-100">
+                            <span className="font-mono text-xl sm:text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-wider">
                                 {currentTime.toLocaleTimeString('en-GB')}
                             </span>
                         </div>

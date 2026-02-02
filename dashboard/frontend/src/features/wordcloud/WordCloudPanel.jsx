@@ -274,8 +274,8 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                         if (e.target === e.currentTarget) setShowSaveModal(false);
                     }}
                 >
-                    <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-                        <h3 id="save-modal-title" className="text-lg font-bold mb-4">儲存排除詞彙清單</h3>
+                    <div className="bg-white rounded-lg p-4 sm:p-6 w-[90%] sm:w-96 max-w-md shadow-xl">
+                        <h3 id="save-modal-title" className="text-base sm:text-lg font-bold mb-3 sm:mb-4">儲存排除詞彙清單</h3>
                         <label htmlFor="save-wordlist-name" className="sr-only">清單名稱</label>
                         <input
                             id="save-wordlist-name"
@@ -283,29 +283,29 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                             value={saveAsName}
                             onChange={(e) => setSaveAsName(e.target.value)}
                             placeholder="清單名稱"
-                            className="w-full border p-2 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border p-2 mb-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             autoFocus
                         />
-                        {saveError && <div className="text-red-500 text-sm mb-2" role="alert">{saveError}</div>}
-                        <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">取消</button>
-                            <button onClick={handleSaveNew} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">儲存</button>
+                        {saveError && <div className="text-red-500 text-xs sm:text-sm mb-2" role="alert">{saveError}</div>}
+                        <div className="flex justify-end gap-2 mt-3 sm:mt-4">
+                            <button onClick={() => setShowSaveModal(false)} className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm text-gray-600 hover:bg-gray-100 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">取消</button>
+                            <button onClick={handleSaveNew} disabled={saving} className="bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 text-sm rounded cursor-pointer hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">儲存</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="flex flex-wrap justify-between items-center mb-4">
-                <h2 className="flex items-center gap-2 text-xl font-bold text-gray-800">
-                    <CloudIcon className="w-6 h-6" />
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3 sm:mb-4">
+                <h2 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-gray-800">
+                    <CloudIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                     <span>文字雲</span>
                 </h2>
-                <div className="flex gap-2">
-                    <button onClick={() => setSeed(Math.floor(Math.random() * 1000000))} className="flex items-center gap-1 bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                <div className="flex gap-1 sm:gap-2">
+                    <button onClick={() => setSeed(Math.floor(Math.random() * 1000000))} className="flex items-center gap-1 bg-purple-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm hover:bg-purple-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                         <ArrowPathIcon className="w-4 h-4" />
-                        <span>重繪</span>
+                        <span className="hidden sm:inline">重繪</span>
                     </button>
-                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords, replacementWordlistId: selectedReplacementWordlistId })} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords, replacementWordlistId: selectedReplacementWordlistId })} className="flex items-center gap-1 bg-blue-600 text-white px-2 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm hover:bg-blue-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <ArrowPathIcon className="w-4 h-4" />
                         <span>重新載入</span>
                     </button>

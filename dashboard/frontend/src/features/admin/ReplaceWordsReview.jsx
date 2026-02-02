@@ -282,82 +282,82 @@ const ReplaceWordsReview = () => {
                 )}
             </div>
 
-            <div className="flex justify-between items-center mb-4">
-                <div className="space-x-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div className="flex flex-wrap gap-2">
                     <button
-                        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 cursor-pointer"
+                        className="bg-purple-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded hover:bg-purple-700 cursor-pointer"
                         onClick={() => setShowAddForm(!showAddForm)}
                     >
-                        {showAddForm ? '關閉表單' : <><PlusIcon className="w-4 h-4 inline mr-1" />新增詞彙</>}
+                        {showAddForm ? '關閉' : <><PlusIcon className="w-4 h-4 inline mr-1" />新增</>}
                     </button>
                     <button
-                        className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-green-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('approve')}
                     >
-                        {isProcessing ? 'Processing...' : `Approve Selected (${selectedIds.length})`}
+                        {isProcessing ? '...' : <><span className="hidden sm:inline">Approve </span>({selectedIds.length})</>}
                     </button>
                     <button
-                        className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('reject')}
                     >
-                        {isProcessing ? 'Processing...' : `Reject Selected (${selectedIds.length})`}
+                        {isProcessing ? '...' : <><span className="hidden sm:inline">Reject </span>({selectedIds.length})</>}
                     </button>
                     <button
-                        className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-red-800 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         onClick={() => confirmAction('clear')}
                         disabled={isProcessing}
                     >
-                        <TrashIcon className="w-4 h-4 inline mr-1" />
-                        Clear All
+                        <TrashIcon className="w-4 h-4 inline" />
+                        <span className="hidden sm:inline ml-1">Clear All</span>
                     </button>
                 </div>
-                <div>
-                    <span className="mr-2">Total: {total}</span>
+                <div className="text-sm text-gray-600">
+                    Total: {total}
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="min-w-full bg-white border border-gray-200">
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <table className="min-w-full bg-white border border-gray-200 text-sm">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-4 py-2 border-b w-10">
+                            <th className="px-2 sm:px-4 py-2 border-b w-8 sm:w-10">
                                 <input
                                     type="checkbox"
                                     checked={items.length > 0 && selectedIds.length === items.length}
                                     onChange={handleSelectAll}
                                 />
                             </th>
-                            <th className="px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100" onClick={() => { setSortBy('source_word'); setSortOrder(sortBy === 'source_word' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                                Source Word {sortBy === 'source_word' && (sortOrder === 'asc' ? '▲' : '▼')}
+                            <th className="px-2 sm:px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100 whitespace-nowrap" onClick={() => { setSortBy('source_word'); setSortOrder(sortBy === 'source_word' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                                <span className="hidden sm:inline">Source </span>Word {sortBy === 'source_word' && (sortOrder === 'asc' ? '▲' : '▼')}
                             </th>
-                            <th className="px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100" onClick={() => { setSortBy('target_word'); setSortOrder(sortBy === 'target_word' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                                Target Word {sortBy === 'target_word' && (sortOrder === 'asc' ? '▲' : '▼')}
+                            <th className="px-2 sm:px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100 whitespace-nowrap" onClick={() => { setSortBy('target_word'); setSortOrder(sortBy === 'target_word' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                                <span className="hidden sm:inline">Target </span>Word {sortBy === 'target_word' && (sortOrder === 'asc' ? '▲' : '▼')}
                             </th>
-                            <th className="px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100" onClick={() => { setSortBy('confidence'); setSortOrder(sortBy === 'confidence' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                                Confidence {sortBy === 'confidence' && (sortOrder === 'asc' ? '▲' : '▼')}
+                            <th className="px-2 sm:px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100 whitespace-nowrap" onClick={() => { setSortBy('confidence'); setSortOrder(sortBy === 'confidence' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                                <span className="hidden sm:inline">Confidence</span><span className="sm:hidden">Conf</span> {sortBy === 'confidence' && (sortOrder === 'asc' ? '▲' : '▼')}
                             </th>
-                            <th className="px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100" onClick={() => { setSortBy('occurrence'); setSortOrder(sortBy === 'occurrence' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                                Occurrences {sortBy === 'occurrence' && (sortOrder === 'asc' ? '▲' : '▼')}
+                            <th className="px-2 sm:px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100 whitespace-nowrap hidden md:table-cell" onClick={() => { setSortBy('occurrence'); setSortOrder(sortBy === 'occurrence' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                                Occur {sortBy === 'occurrence' && (sortOrder === 'asc' ? '▲' : '▼')}
                             </th>
-                            <th className="px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100" onClick={() => { setSortBy('discovered_at'); setSortOrder(sortBy === 'discovered_at' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                                Discovered At {sortBy === 'discovered_at' && (sortOrder === 'asc' ? '▲' : '▼')}
+                            <th className="px-2 sm:px-4 py-2 border-b text-left cursor-pointer hover:bg-gray-100 whitespace-nowrap hidden lg:table-cell" onClick={() => { setSortBy('discovered_at'); setSortOrder(sortBy === 'discovered_at' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
+                                Discovered {sortBy === 'discovered_at' && (sortOrder === 'asc' ? '▲' : '▼')}
                             </th>
-                            <th className="px-4 py-2 border-b text-center">Actions</th>
+                            <th className="px-2 sm:px-4 py-2 border-b text-center">Act</th>
                         </tr>
                     </thead>
                     <tbody>
                         {items.map(item => (
                             <tr key={item.id} className="hover:bg-gray-50">
-                                <td className="px-4 py-2 border-b text-center">
+                                <td className="px-2 sm:px-4 py-2 border-b text-center">
                                     <input
                                         type="checkbox"
                                         checked={selectedIds.includes(item.id)}
                                         onChange={() => handleSelect(item.id)}
                                     />
                                 </td>
-                                <td className="px-4 py-2 border-b">
+                                <td className="px-2 sm:px-4 py-2 border-b">
                                     <button
                                         onClick={() => setWordDetailModal({
                                             isOpen: true,
@@ -366,12 +366,12 @@ const ReplaceWordsReview = () => {
                                             sourceWord: item.source_word,
                                             targetWord: item.target_word
                                         })}
-                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1 text-xs sm:text-sm"
                                     >
                                         {item.source_word}
                                     </button>
                                 </td>
-                                <td className="px-4 py-2 border-b">
+                                <td className="px-2 sm:px-4 py-2 border-b">
                                     <button
                                         onClick={() => setWordDetailModal({
                                             isOpen: true,
@@ -380,26 +380,26 @@ const ReplaceWordsReview = () => {
                                             sourceWord: item.source_word,
                                             targetWord: item.target_word
                                         })}
-                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
+                                        className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1 text-xs sm:text-sm"
                                     >
                                         {item.target_word}
                                     </button>
                                 </td>
-                                <td className="px-4 py-2 border-b">
-                                    <span className={`px-2 py-1 rounded text-xs text-white ${item.confidence_score > 0.8 ? 'bg-green-500' :
+                                <td className="px-2 sm:px-4 py-2 border-b">
+                                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs text-white ${item.confidence_score > 0.8 ? 'bg-green-500' :
                                         item.confidence_score > 0.5 ? 'bg-yellow-500' : 'bg-red-500'
                                         }`}>
                                         {(item.confidence_score * 100).toFixed(0)}%
                                     </span>
                                 </td>
-                                <td className="px-4 py-2 border-b">{item.occurrence_count}</td>
-                                <td className="px-4 py-2 border-b text-sm text-gray-500">
-                                    {new Date(item.discovered_at).toLocaleString()}
+                                <td className="px-2 sm:px-4 py-2 border-b hidden md:table-cell">{item.occurrence_count}</td>
+                                <td className="px-2 sm:px-4 py-2 border-b text-xs text-gray-500 hidden lg:table-cell">
+                                    {new Date(item.discovered_at).toLocaleDateString()}
                                 </td>
-                                <td className="px-4 py-2 border-b text-center space-x-2">
+                                <td className="px-2 sm:px-4 py-2 border-b text-center">
                                     <button
                                         onClick={() => handleValidate(item)}
-                                        className="text-blue-600 hover:text-blue-800 text-sm underline"
+                                        className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm underline cursor-pointer"
                                     >
                                         Check
                                     </button>
@@ -418,27 +418,28 @@ const ReplaceWordsReview = () => {
             </div>
 
             {/* Pagination */}
-            <div className="mt-4 flex justify-between items-center">
+            <div className="mt-4 flex justify-between items-center gap-2">
                 <button
                     disabled={page === 0}
                     onClick={() => setPage(p => p - 1)}
-                    className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-100"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm border rounded disabled:opacity-50 hover:bg-gray-100 cursor-pointer disabled:cursor-not-allowed"
                 >
-                    Previous
+                    <span className="hidden sm:inline">Previous</span>
+                    <span className="sm:hidden">Prev</span>
                 </button>
-                <span className="text-gray-600">
-                    Page {page + 1} of {Math.ceil(total / limit) || 1}
+                <span className="text-xs sm:text-sm text-gray-600">
+                    {page + 1} / {Math.ceil(total / limit) || 1}
                 </span>
                 <button
                     disabled={(page + 1) * limit >= total}
                     onClick={() => setPage(p => p + 1)}
-                    className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-100"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm border rounded disabled:opacity-50 hover:bg-gray-100 cursor-pointer disabled:cursor-not-allowed"
                 >
                     Next
                 </button>
             </div>
 
-            <div className="mt-8 text-sm text-gray-500">
+            <div className="mt-6 sm:mt-8 text-xs sm:text-sm text-gray-500">
                 <h3 className="font-semibold mb-2">Instructions:</h3>
                 <ul className="list-disc pl-5 space-y-1">
                     <li>Use checkboxes to select multiple items for batch approval or rejection.</li>

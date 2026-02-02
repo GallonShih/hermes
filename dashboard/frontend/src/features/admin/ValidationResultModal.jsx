@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 
 const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
     const closeButtonRef = useRef(null);
@@ -21,17 +22,36 @@ const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
 
     if (!isOpen) return null;
 
-    return (
+    return ReactDOM.createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
+            className="fixed inset-0 z-50 glass-modal-overlay"
             role="dialog"
             aria-modal="true"
             aria-labelledby="validation-result-title"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999
+            }}
         >
-            <div className="glass-modal rounded-2xl max-w-2xl w-full overflow-hidden transform transition-all">
+            <div
+                className="glass-modal rounded-2xl overflow-hidden"
+                style={{
+                    width: 'calc(100% - 2rem)',
+                    maxWidth: '42rem',
+                    maxHeight: 'calc(100vh - 4rem)'
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="p-6">
                     {/* Header */}
                     <div className="flex items-center mb-4">
@@ -97,7 +117,8 @@ const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
