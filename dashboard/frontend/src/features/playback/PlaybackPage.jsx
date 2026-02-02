@@ -628,8 +628,9 @@ function PlaybackPage() {
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
                                             {wordcloudLoading && !wordcloudSnapshots.length ? (
-                                                <div className="h-full flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
+                                                <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
+                                                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                                    <p className="mt-3 text-gray-500 text-sm">載入中...</p>
                                                 </div>
                                             ) : wordcloudError ? (
                                                 <div className="h-full flex items-center justify-center gap-2 bg-red-50 rounded-2xl border border-red-200 text-red-600">
@@ -654,8 +655,9 @@ function PlaybackPage() {
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
                                             {wordcloudLoading && !wordcloudSnapshots.length ? (
-                                                <div className="h-full flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
-                                                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500"></div>
+                                                <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
+                                                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                                    <p className="mt-3 text-gray-500 text-sm">載入中...</p>
                                                 </div>
                                             ) : wordcloudError ? (
                                                 <div className="h-full flex items-center justify-center gap-2 bg-red-50 rounded-2xl border border-red-200 text-red-600">

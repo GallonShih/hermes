@@ -6,6 +6,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { fetchMoneySummary } from '../../api/stats';
 import { formatCurrency } from '../../utils/formatters';
+import { SkeletonStatCard } from '../../components/common/Skeleton';
 
 const MoneyStats = ({ startTime, endTime, hasTimeFilter = false }) => {
     const [stats, setStats] = useState(null);
@@ -36,7 +37,15 @@ const MoneyStats = ({ startTime, endTime, hasTimeFilter = false }) => {
     }, [startTime, endTime, hasTimeFilter]);
 
     if (loading && !stats) {
-        return <div className="mt-8 glass-card rounded-2xl p-6 text-center text-gray-500">Loading money statistics...</div>;
+        return (
+            <div className="mt-8 space-y-4">
+                <div className="h-8 w-48 bg-white/50 rounded-lg animate-pulse" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <SkeletonStatCard className="h-48" />
+                    <SkeletonStatCard className="h-48" />
+                </div>
+            </div>
+        );
     }
 
     if (error) {

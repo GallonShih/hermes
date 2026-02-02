@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { SkeletonMessageList } from '../../components/common/Skeleton';
+import Spinner from '../../components/common/Spinner';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -252,19 +254,30 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
     const totalPages = Math.ceil(totalMessages / limit);
 
     if (loading && totalMessages === 0) {
-        return <div className="mt-8 bg-white rounded-lg shadow p-6 flex justify-center py-8">載入中...</div>;
+        return (
+            <div className="mt-8 glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <ChatBubbleLeftRightIcon className="w-7 h-7 text-gray-400" />
+                    <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <SkeletonMessageList count={10} />
+            </div>
+        );
     }
     if (error) {
-        return <div className="mt-8 bg-white rounded-lg shadow p-6 flex justify-center py-8 text-red-500">錯誤: {error}</div>;
+        return <div className="mt-8 glass-card rounded-2xl p-6 flex justify-center py-8 text-red-500">錯誤: {error}</div>;
     }
 
     return (
-        <div className="mt-8 bg-white rounded-lg shadow p-6">
+        <div className="mt-8 glass-card rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">訊息列表</h2>
+                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
+                    <ChatBubbleLeftRightIcon className="w-7 h-7" />
+                    <span>訊息列表</span>
+                </h2>
                 {isRefreshing && (
-                    <div className="flex items-center gap-1 text-sm text-blue-600 animate-pulse">
-                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-sm text-indigo-600">
+                        <Spinner size="sm" />
                         <span>更新中...</span>
                     </div>
                 )}

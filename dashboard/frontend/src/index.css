@@ -195,6 +195,20 @@ textarea:focus-visible {
   }
 }
 
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
 .animate-slide-in {
   animation: slide-in 0.3s ease-out forwards;
 }

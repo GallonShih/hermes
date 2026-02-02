@@ -331,7 +331,10 @@ const TrendsPage = () => {
                             </div>
 
                             {loadingGroups ? (
-                                <div className="text-center text-gray-500 py-8">載入中...</div>
+                                <div className="flex flex-col items-center justify-center py-12">
+                                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                    <p className="mt-3 text-gray-500 text-sm">載入詞彙組...</p>
+                                </div>
                             ) : (
                                 <>
                                     {/* New group card */}
@@ -398,7 +401,10 @@ const TrendsPage = () => {
                                         顯示資料點
                                     </label>
                                     {loadingTrends && (
-                                        <span className="text-sm text-gray-500">更新中...</span>
+                                        <div className="flex items-center gap-2 text-sm text-indigo-600">
+                                            <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                            <span>更新中...</span>
+                                        </div>
                                     )}
                                 </div>
                             </div>

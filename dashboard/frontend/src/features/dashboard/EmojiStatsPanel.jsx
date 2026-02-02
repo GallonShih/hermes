@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaceSmileIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useEmojiStats } from '../../hooks/useEmojiStats';
+import { SkeletonTable } from '../../components/common/Skeleton';
+import Spinner from '../../components/common/Spinner';
 
 const EmojiRow = ({ emoji }) => {
     return (
@@ -95,7 +97,15 @@ const EmojiStatsPanel = ({ startTime, endTime, hasTimeFilter = false }) => {
     const totalPages = Math.ceil(total / limit);
 
     if (loading && total === 0) {
-        return <div className="mt-8 glass-card rounded-2xl p-6 flex justify-center py-8">載入中...</div>;
+        return (
+            <div className="mt-8 glass-card rounded-2xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <FaceSmileIcon className="w-7 h-7 text-gray-400" />
+                    <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <SkeletonTable rows={8} columns={4} />
+            </div>
+        );
     }
     if (error) {
         return <div className="mt-8 glass-card rounded-2xl p-6 flex justify-center py-8 text-red-500">錯誤: {error}</div>;
@@ -109,8 +119,8 @@ const EmojiStatsPanel = ({ startTime, endTime, hasTimeFilter = false }) => {
                     <span>表情統計</span>
                 </h2>
                 {isRefreshing && (
-                    <div className="flex items-center gap-1 text-sm text-blue-600 animate-pulse">
-                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-sm text-indigo-600">
+                        <Spinner size="sm" />
                         <span>更新中...</span>
                     </div>
                 )}

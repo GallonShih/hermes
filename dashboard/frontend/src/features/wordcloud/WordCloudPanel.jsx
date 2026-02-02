@@ -13,6 +13,7 @@ import { useWordlists } from '../../hooks/useWordlists';
 import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
 import { useToast } from '../../components/common/Toast';
 import ConfirmModal from '../admin/ConfirmModal';
+import { LoadingOverlay } from '../../components/common/Spinner';
 
 import ReplacementWordlistPanel from './ReplacementWordlistPanel';
 
@@ -312,8 +313,8 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-                <div className="lg:col-span-3 border border-gray-200 rounded-lg bg-gray-50 relative min-h-[400px]">
-                    {loading && <div className="absolute inset-0 bg-white bg-opacity-60 flex items-center justify-center z-10">載入中...</div>}
+                <div className="lg:col-span-3 border border-white/30 rounded-2xl bg-white/50 relative min-h-[400px]">
+                    {loading && <LoadingOverlay message="載入文字雲..." transparent />}
                     {wordData.length > 0 ? (
                         <WordCloud key={seed} data={displayWords} width={600} height={400} fontSize={fontSize} rotate={rotate} fill={fill} padding={2} random={seededRandom} />
                     ) : (

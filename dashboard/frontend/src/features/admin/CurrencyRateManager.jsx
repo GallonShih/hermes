@@ -118,7 +118,12 @@ const CurrencyRateManager = () => {
     };
 
     if (loading) {
-        return <div className="p-6 text-center">Loading...</div>;
+        return (
+            <div className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <p className="mt-4 text-gray-500">載入匯率設定...</p>
+            </div>
+        );
     }
 
     return (
