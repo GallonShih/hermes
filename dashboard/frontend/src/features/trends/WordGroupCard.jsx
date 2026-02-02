@@ -134,25 +134,28 @@ const WordGroupCard = ({
                         <>
                             <button
                                 onClick={() => onToggleVisibility?.(group.id)}
-                                className={`p-2 rounded-lg transition-colors cursor-pointer ${isVisible
+                                className={`p-2 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isVisible
                                         ? 'text-blue-600 hover:bg-blue-50'
                                         : 'text-gray-400 hover:bg-gray-100'
                                     }`}
                                 title={isVisible ? '隱藏圖表' : '顯示圖表'}
+                                aria-label={isVisible ? '隱藏圖表' : '顯示圖表'}
                             >
                                 {isVisible ? <EyeIcon className="w-5 h-5" /> : <EyeSlashIcon className="w-5 h-5" />}
                             </button>
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                 title="編輯"
+                                aria-label="編輯詞彙組"
                             >
                                 <PencilIcon className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                                 title="刪除"
+                                aria-label="刪除詞彙組"
                             >
                                 <TrashIcon className="w-5 h-5" />
                             </button>
@@ -196,7 +199,8 @@ const WordGroupCard = ({
                         />
                         <button
                             onClick={handleAddWord}
-                            className="ml-1 px-2 py-1 text-blue-600 hover:bg-blue-50 rounded-full text-sm font-medium"
+                            className="ml-1 px-2 py-1 text-blue-600 hover:bg-blue-50 rounded-full text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="新增詞彙"
                         >
                             +
                         </button>
@@ -248,13 +252,13 @@ const WordGroupCard = ({
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                         {isSaving ? '儲存中...' : '儲存'}
                     </button>
                     <button
                         onClick={handleCancel}
-                        className="px-4 py-2 text-gray-600 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                        className="px-4 py-2 text-gray-600 font-medium rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                     >
                         取消
                     </button>

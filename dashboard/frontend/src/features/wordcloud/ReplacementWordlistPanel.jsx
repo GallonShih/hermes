@@ -155,20 +155,20 @@ const ReplacementWordlistPanel = ({
                         <>
                             <button
                                 onClick={handleSaveChanges}
-                                className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500'} text-white px-2 py-1 rounded text-xs hover:${updateSuccess ? 'bg-gray-600' : 'bg-green-600'} transition-colors duration-200`}
+                                className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500 hover:bg-green-600'} text-white px-2 py-1 rounded text-xs transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2`}
                                 disabled={updateSuccess}
                             >
                                 {updateSuccess ? '已更新!' : '更新'}
                             </button>
                             <button
                                 onClick={() => setShowCreateModal(true)}
-                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                             >
                                 另存
                             </button>
                             <button
                                 onClick={confirmDeleteList}
-                                className="text-red-600 border border-red-200 px-2 py-1 rounded text-xs hover:bg-red-50 cursor-pointer"
+                                className="text-red-600 border border-red-200 px-2 py-1 rounded text-xs hover:bg-red-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                             >
                                 刪除
                             </button>
@@ -176,7 +176,7 @@ const ReplacementWordlistPanel = ({
                     ) : (
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                             disabled={rules.length === 0}
                         >
                             儲存為新清單

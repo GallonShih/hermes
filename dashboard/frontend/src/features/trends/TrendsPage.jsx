@@ -258,19 +258,19 @@ const TrendsPage = () => {
                         {/* Quick range buttons */}
                         <button
                             onClick={() => setQuickRange(24)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             24H
                         </button>
                         <button
                             onClick={() => setQuickRange(72)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             3天
                         </button>
                         <button
                             onClick={() => setQuickRange(168)}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             7天
                         </button>
@@ -324,7 +324,7 @@ const TrendsPage = () => {
                                 <button
                                     onClick={() => setIsAddingNew(true)}
                                     disabled={isAddingNew}
-                                    className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                                    className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                                 >
                                     + 新增
                                 </button>

@@ -61,7 +61,7 @@ const AdminPanel = () => {
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                     <div className="flex border-b border-gray-200 overflow-x-auto">
                         <button
-                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'replace'
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'replace'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -70,7 +70,7 @@ const AdminPanel = () => {
                             Pending Replace Words
                         </button>
                         <button
-                            className={`px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap ${activeTab === 'special'
+                            className={`px-6 py-4 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'special'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -79,7 +79,7 @@ const AdminPanel = () => {
                             Pending Special Words
                         </button>
                         <button
-                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap cursor-pointer ${activeTab === 'currency'
+                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'currency'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -89,7 +89,7 @@ const AdminPanel = () => {
                             <span>Currency Rates</span>
                         </button>
                         <button
-                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap cursor-pointer ${activeTab === 'settings'
+                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'settings'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}
@@ -99,7 +99,7 @@ const AdminPanel = () => {
                             <span>Settings</span>
                         </button>
                         <button
-                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none whitespace-nowrap cursor-pointer ${activeTab === 'textmining'
+                            className={`flex items-center gap-2 px-6 py-4 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'textmining'
                                 ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                 }`}

@@ -264,14 +264,31 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
     return (
         <div className="bg-white p-6 rounded-lg shadow-md mt-6">
             {showSaveModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="save-modal-title"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setShowSaveModal(false);
+                    }}
+                >
                     <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-                        <h3 className="text-lg font-bold mb-4">儲存排除詞彙清單</h3>
-                        <input type="text" value={saveAsName} onChange={(e) => setSaveAsName(e.target.value)} placeholder="清單名稱" className="w-full border p-2 mb-2 rounded" />
-                        {saveError && <div className="text-red-500 text-sm mb-2">{saveError}</div>}
+                        <h3 id="save-modal-title" className="text-lg font-bold mb-4">儲存排除詞彙清單</h3>
+                        <label htmlFor="save-wordlist-name" className="sr-only">清單名稱</label>
+                        <input
+                            id="save-wordlist-name"
+                            type="text"
+                            value={saveAsName}
+                            onChange={(e) => setSaveAsName(e.target.value)}
+                            placeholder="清單名稱"
+                            className="w-full border p-2 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                        />
+                        {saveError && <div className="text-red-500 text-sm mb-2" role="alert">{saveError}</div>}
                         <div className="flex justify-end gap-2 mt-4">
-                            <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-gray-600">取消</button>
-                            <button onClick={handleSaveNew} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded">儲存</button>
+                            <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">取消</button>
+                            <button onClick={handleSaveNew} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">儲存</button>
                         </div>
                     </div>
                 </div>
@@ -283,11 +300,11 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                     <span>文字雲</span>
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={() => setSeed(Math.floor(Math.random() * 1000000))} className="flex items-center gap-1 bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 cursor-pointer">
+                    <button onClick={() => setSeed(Math.floor(Math.random() * 1000000))} className="flex items-center gap-1 bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                         <ArrowPathIcon className="w-4 h-4" />
                         <span>重繪</span>
                     </button>
-                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords, replacementWordlistId: selectedReplacementWordlistId })} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 cursor-pointer">
+                    <button onClick={() => getWordFrequency({ startTime, endTime, excludeWords, replacementWordlistId: selectedReplacementWordlistId })} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <ArrowPathIcon className="w-4 h-4" />
                         <span>重新載入</span>
                     </button>
@@ -331,21 +348,21 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                     <div className="flex gap-2 items-center">
                         <span className="text-sm">Seed: {seed}</span>
                         <input type="number" value={seedInput} onChange={(e) => setSeedInput(e.target.value)} placeholder="Seed" className="border px-2 py-1 w-20 text-sm rounded" />
-                        <button onClick={() => setSeed(parseInt(seedInput) || seed)} className="bg-gray-200 px-2 py-1 text-sm rounded">Apply</button>
+                        <button onClick={() => setSeed(parseInt(seedInput) || seed)} className="bg-gray-200 px-2 py-1 text-sm rounded cursor-pointer hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Apply</button>
                     </div>
                 </div>
                 <div>
                     {/* Config Tabs */}
                     <div className="flex gap-2 border-b mb-3">
                         <button
-                            className={`flex items-center gap-1 px-3 py-1 text-sm cursor-pointer ${configTab === 'exclusion' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center gap-1 px-3 py-1 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors ${configTab === 'exclusion' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
                             onClick={() => setConfigTab('exclusion')}
                         >
                             <NoSymbolIcon className="w-4 h-4" />
                             <span>排除詞彙</span>
                         </button>
                         <button
-                            className={`flex items-center gap-1 px-3 py-1 text-sm cursor-pointer ${configTab === 'replacement' ? 'border-b-2 border-purple-500 text-purple-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center gap-1 px-3 py-1 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500 transition-colors ${configTab === 'replacement' ? 'border-b-2 border-purple-500 text-purple-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
                             onClick={() => setConfigTab('replacement')}
                         >
                             <ArrowsRightLeftIcon className="w-4 h-4" />
@@ -365,13 +382,13 @@ function WordCloudPanel({ startTime, endTime, hasTimeFilter }) {
                                     {selectedWordlistId && (
                                         <button
                                             onClick={handleUpdateWordlist}
-                                            className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500'} text-white px-2 rounded text-xs transition-colors duration-200`}
+                                            className={`${updateSuccess ? 'bg-gray-500' : 'bg-green-500 hover:bg-green-600'} text-white px-2 rounded text-xs transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2`}
                                             disabled={updateSuccess}
                                         >
                                             {updateSuccess ? '已更新!' : '更新'}
                                         </button>
                                     )}
-                                    <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs">另存</button>
+                                    <button onClick={() => setShowSaveModal(true)} className="bg-blue-500 text-white px-2 rounded text-xs cursor-pointer hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">另存</button>
                                     {selectedWordlistId && <button onClick={confirmDeleteWordlist} className="text-red-600 border border-red-200 px-2 rounded text-xs cursor-pointer">刪除</button>}
                                 </div>
                             </div>

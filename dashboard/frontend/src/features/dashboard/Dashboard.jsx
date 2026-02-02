@@ -357,7 +357,7 @@ function Dashboard() {
                         <label className="text-sm font-semibold text-gray-700">時間範圍:</label>
                         <button
                             onClick={() => setStartDate(formatLocalHour(new Date(Date.now() - 12 * 60 * 60 * 1000)))}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             -12H
                         </button>
@@ -381,13 +381,13 @@ function Dashboard() {
                         />
                         <button
                             onClick={() => setEndDate(formatLocalHour(new Date()))}
-                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors"
+                            className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm text-gray-700 font-medium transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             現在
                         </button>
                         <button
                             onClick={handleFilter}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer"
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-all duration-200 hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                         >
                             <MagnifyingGlassIcon className="w-4 h-4" />
                             <span>篩選</span>
