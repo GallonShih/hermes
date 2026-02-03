@@ -13,8 +13,11 @@ TEST_DB_URL = os.environ.get(
 )
 
 @pytest.fixture
-def setup_integration_data():
-    """Setup data for chat processor test without holding transaction locks."""
+def setup_integration_data(setup_database):
+    """Setup data for chat processor test without holding transaction locks.
+
+    Depends on setup_database to ensure tables exist before truncating.
+    """
     engine = create_engine(TEST_DB_URL)
     
     # Clean up first

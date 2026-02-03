@@ -5,11 +5,13 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.models import (
-    Base, ChatMessage, StreamStats, 
+    Base, ChatMessage, StreamStats,
     ReplaceWord, SpecialWord,
     PendingReplaceWord, PendingSpecialWord, CurrencyRate,
     ExclusionWordlist, WordTrendGroup,
-    ETLSetting, ETLExecutionLog, PromptTemplate
+    ETLSetting, ETLExecutionLog, PromptTemplate,
+    SystemSetting, ReplacementWordlist,
+    ProcessedChatMessage, ProcessedChatCheckpoint
 )
 from app.core.database import get_db
 from main import app

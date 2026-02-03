@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, BigInteger, DateTime, JSON, Numeric, Boolean
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 import datetime
@@ -265,3 +266,33 @@ class PromptTemplate(Base):
 
     def __repr__(self):
         return f"<PromptTemplate(id={self.id}, name={self.name}, is_active={self.is_active})>"
+
+
+class ProcessedChatMessage(Base):
+    """處理後的聊天留言表，包含斷詞結果和 emoji 解析"""
+    __tablename__ = 'processed_chat_messages'
+
+    message_id = Column(String(255), primary_key=True)
+    live_stream_id = Column(String(255), nullable=False)
+    original_message = Column(Text, nullable=False)
+    processed_message = Column(Text, nullable=False)
+    tokens = Column(ARRAY(Text))  # TEXT[] in PostgreSQL
+    unicode_emojis = Column(ARRAY(Text))  # TEXT[] in PostgreSQL
+    youtube_emotes = Column(JSONB)  # JSONB in PostgreSQL
+    author_name = Column(String(255), nullable=False)
+    author_id = Column(String(255), nullable=False)
+    published_at = Column(DateTime(timezone=True), nullable=False)
+    processed_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<ProcessedChatMessage(id={self.message_id}, author={self.author_name})>"
+
+
+class ProcessedChatCheckpoint(Base):
+    """ETL 處理檢查點，記錄最後處理的位置"""
+    __tablename__ = 'processed_chat_checkpoint'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    last_processed_message_id = Column(String(255))
+    last_processed_timestamp = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp())
