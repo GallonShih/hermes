@@ -14,7 +14,7 @@
   <a href="#"><img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
   <a href="#"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React"></a>
   <a href="#"><img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Airflow-2.11-017CEE?style=flat-square&logo=apacheairflow&logoColor=white" alt="Airflow"></a>
+  <a href="#"><img src="https://img.shields.io/badge/APScheduler-3.x-FF6B6B?style=flat-square" alt="APScheduler"></a>
   <a href="#"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
 </p>
 
@@ -89,15 +89,11 @@ cp .env.example .env
 # 3. Start all services
 docker-compose up -d
 
-# 4. Configure Airflow (required for ETL)
-# Access Airflow at http://localhost:8080 (default: airflow/airflow)
-# See SETUP.md for detailed Airflow Variables configuration
-
-# 5. Access the dashboard
+# 4. Access the dashboard
 open http://localhost:3000
 ```
 
-> 📖 **First-time setup?** See [docs/SETUP.md](docs/SETUP.md) for detailed configuration including Airflow Variables and initial DAG triggers.
+> 📖 **First-time setup?** See [docs/SETUP.md](docs/SETUP.md) for detailed configuration. ETL tasks are automatically managed via the Dashboard Admin panel.
 
 ---
 
@@ -106,8 +102,7 @@ open http://localhost:3000
 | Service | Port | Description |
 |---------|------|-------------|
 | **Dashboard Frontend** | `3000` | React-based visualization & admin UI |
-| **Dashboard Backend** | `8000` | FastAPI REST API (`/docs` for Swagger) |
-| **Airflow Webserver** | `8080` | ETL pipeline management |
+| **Dashboard Backend** | `8000` | FastAPI REST API with built-in ETL scheduler (`/docs` for Swagger) |
 | **PostgreSQL** | `5432` | Primary data storage |
 | **pgAdmin** | `5050` | Database administration UI |
 
@@ -123,23 +118,27 @@ youtube-live-chat-analyzer/
 │   └── youtube_api.py   # YouTube Data API integration
 │
 ├── dashboard/
-│   ├── backend/         # FastAPI REST API
-│   │   ├── app/routers/ # API endpoints (chat, wordcloud, admin, etc.)
-│   │   │   └── word_trends.py # Word trend analysis endpoints
-│   │   └── app/models.py# SQLAlchemy models
+│   ├── backend/         # FastAPI REST API with built-in ETL scheduler
+│   │   ├── app/routers/ # API endpoints (chat, wordcloud, admin, etl, etc.)
+│   │   ├── app/etl/     # APScheduler-based ETL tasks
+│   │   │   ├── processors/  # Chat processing, word discovery, dict import
+│   │   │   ├── scheduler.py # Task scheduling
+│   │   │   └── tasks.py     # Task definitions
+│   │   └── app/models.py    # SQLAlchemy models
 │   └── frontend/        # React + Vite + TailwindCSS
-│       └── src/features/# Feature-based components (playback, admin, etc.)
-│           └── trends/  # Word trends analysis UI
+│       └── src/features/    # Feature-based components
+│           ├── admin/       # Admin panel (ETL jobs, settings, word approval)
+│           ├── playback/    # Timeline-based message playback
+│           └── trends/      # Word trends analysis UI
 │
-├── airflow/
-│   └── dags/
-│       ├── process_chat_messages.py  # ETL: tokenization, emoji extraction
-│       └── discover_new_words.py     # AI: Gemini-powered word discovery
+├── airflow/             # [DEPRECATED] Legacy Airflow DAGs (see docs/legacy/)
 │
 ├── database/
 │   └── init/            # SQL migrations (auto-executed on first start)
 │
 ├── text_analysis/       # NLP dictionaries (stopwords, special words, etc.)
+│
+├── .github/workflows/   # CI/CD pipeline (tests, build, deploy)
 │
 ├── docker-compose.yml   # Full stack orchestration
 ├── .env.example         # Environment variables template

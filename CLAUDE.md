@@ -10,20 +10,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-The system consists of five main components:
+The system consists of four main components:
 
 1. **collector**: Real-time chat collection using `chat-downloader` + YouTube Data API stats polling
 2. **PostgreSQL**: Central database storing raw messages, processed tokens, and analysis results
-3. **Airflow**: ETL orchestration (3 DAGs: dictionary imports, message processing, AI word discovery)
-4. **Dashboard Backend**: FastAPI REST API serving data and admin operations
-5. **Dashboard Frontend**: React + Vite + TailwindCSS for visualization and management
+3. **Dashboard Backend**: FastAPI REST API with built-in ETL scheduler (APScheduler)
+4. **Dashboard Frontend**: React + Vite + TailwindCSS for visualization and management
 
 ### Service Communication Flow
 
 ```
 YouTube Live → collector → PostgreSQL
                                     ↓
-                    Airflow DAGs (ETL + AI Discovery)
+                    APScheduler ETL Tasks (in Dashboard Backend)
                                     ↓
                               PostgreSQL
                                     ↓
@@ -54,8 +53,25 @@ docker-compose up -d --build dashboard-frontend
 View logs:
 ```bash
 docker-compose logs -f collector
-docker-compose logs -f airflow-scheduler
 docker-compose logs -f dashboard-backend
+```
+
+### ETL Tasks
+
+ETL tasks are managed via the Dashboard Admin panel or API:
+
+```bash
+# Check ETL scheduler status
+curl http://localhost:8000/api/admin/etl/status
+
+# List all ETL jobs
+curl http://localhost:8000/api/admin/etl/jobs
+
+# Trigger a job manually
+curl -X POST http://localhost:8000/api/admin/etl/jobs/process_chat_messages/trigger
+
+# View execution logs
+curl http://localhost:8000/api/admin/etl/logs
 ```
 
 ### Database
@@ -67,25 +83,12 @@ docker-compose exec postgres psql -U hermes -d hermes
 
 Database schema is auto-initialized from `database/init/*.sql` on first startup (files execute in alphabetical order).
 
-### Airflow
-
-Access Airflow UI at `http://localhost:8080` (default: `airflow/airflow`)
-
-Trigger DAG manually:
-```bash
-docker-compose exec airflow-scheduler airflow dags trigger <dag_id>
-```
-
-List all DAGs:
-```bash
-docker-compose exec airflow-scheduler airflow dags list
-```
-
 ### Dashboard
 
 - Frontend: `http://localhost:3000`
 - Backend API docs (Swagger): `http://localhost:8000/docs`
 - pgAdmin: `http://localhost:5050`
+- ETL Management: Dashboard Admin Panel → ETL Jobs
 
 ## Configuration
 
@@ -102,16 +105,14 @@ All configuration is managed through `.env` file (copy from `.env.example`):
 - `CHAT_WATCHDOG_TIMEOUT`: Restart chat collector if hung for N seconds (default: 1800)
 - `ENABLE_BACKFILL`: Enable chat replay backfill (default: false)
 
-### Airflow Configuration
-- `_PIP_ADDITIONAL_REQUIREMENTS`: Python packages for Airflow workers (default includes Gemini SDK, Jieba, emoji)
-- Connection `postgres_chat_db` is auto-configured via `AIRFLOW_CONN_POSTGRES_CHAT_DB` environment variable
+### ETL Configuration
+- `ENABLE_ETL_SCHEDULER`: Enable/disable built-in ETL scheduler (default: true)
+- `GEMINI_API_KEY`: Required for AI word discovery task
+- `TEXT_ANALYSIS_DIR`: Path to text analysis dictionaries (default: `/app/text_analysis`)
 
-### Airflow Variables (Set in UI: Admin → Variables)
-- `GEMINI_API_KEY`: Required for `discover_new_words` DAG
-- `PROCESS_CHAT_DAG_START_TIME`: ISO timestamp to start processing from (default: 7 days ago)
-- `DISCOVER_NEW_WORDS_PROMPT`: Custom Gemini API prompt (optional, has built-in default)
+ETL settings can also be configured via Dashboard Admin > ETL Jobs > Settings.
 
-See `docs/SETUP.md` for detailed first-time setup instructions including Airflow Variables configuration.
+See `docs/SETUP.md` for detailed first-time setup instructions.
 
 ## Database Schema
 
@@ -151,19 +152,22 @@ The worker runs two threads:
 1. Chat collection thread (continuous connection to live chat)
 2. Stats polling thread (periodic API calls at `POLL_INTERVAL`)
 
-### Airflow DAGs
+### Built-in ETL Tasks
 
-Located in `airflow/dags/`:
+Located in `dashboard/backend/app/etl/`:
 
-1. **`import_text_analysis_dicts.py`**: Manual DAG to load JSON dictionaries into database tables
-2. **`process_chat_messages.py`**: Hourly ETL pipeline (word replacement → emoji extraction → Jieba tokenization)
-3. **`discover_new_words.py`**: Every 3 hours, uses Gemini API to find new slang/memes from unprocessed messages
+**Task Registry** (`tasks.py`):
+1. **`import_dicts`**: Load JSON dictionaries into database tables (manual trigger)
+2. **`process_chat_messages`**: Hourly ETL (word replacement → emoji extraction → Jieba tokenization)
+3. **`discover_new_words`**: Every 3 hours, uses Gemini API to find new slang/memes
 
-DAGs use the `postgres_chat_db` connection (auto-configured via environment variable).
-
-Shared logic:
+**Processors** (`processors/`):
 - `text_processor.py`: Jieba tokenization, emoji extraction, word replacement
-- `word_discovery_logic.py`: Gemini API integration and result parsing
+- `chat_processor.py`: ChatProcessor class for message ETL
+- `word_discovery.py`: WordDiscoveryProcessor with Gemini API integration
+- `dict_importer.py`: DictImporter for loading JSON dictionaries
+
+> **Legacy**: The original Airflow DAGs are preserved in `airflow/dags/` for reference. See `docs/legacy/AIRFLOW_GUIDE.md`.
 
 ### Dashboard Backend (FastAPI)
 
@@ -178,6 +182,9 @@ Structure:
   - `wordcloud.py`: Word frequency aggregation
   - `playback.py`: Time-range message playback
   - `admin_*.py`: Admin panel operations (word approval, settings, currency management)
+  - `etl_jobs.py`: ETL task management API
+  - `prompt_templates.py`: Gemini prompt template management
+- `app/etl/`: Built-in ETL scheduler and processors
 - `app/core/`: Configuration and database connection
 - `app/services/`: Business logic layer
 
@@ -218,12 +225,12 @@ Note: Changes to `database/init/` don't auto-apply to existing volumes. Either d
 
 ### Text Analysis Dictionaries
 
-Located in `text_analysis/` (mounted read-only in Airflow):
+Located in `text_analysis/` (mounted read-only in Dashboard Backend):
 - `special_words.json`: Words to preserve during tokenization (names, brands, memes)
 - `replace_words.json`: Replacement rules `{"typo": "correct"}`
 - `meaningless_words.json`: Stopwords excluded from analysis
 
-Format: JSON files with arrays or objects. Import via `import_text_analysis_dicts` DAG.
+Format: JSON files with arrays or objects. Import via Dashboard Admin > ETL Jobs > Trigger `import_dicts`.
 
 ## Key Architectural Patterns
 
@@ -231,10 +238,25 @@ Format: JSON files with arrays or objects. Import via `import_text_analysis_dict
 The `chat_messages` table uses a unique index on `message_id` to prevent duplicates. All inserts use `ON CONFLICT DO NOTHING` to safely retry failed writes.
 
 ### Stateful ETL Processing
-`process_chat_messages` DAG tracks the last processed message timestamp in Airflow Variables. This allows incremental processing without reprocessing old messages.
+The ETL scheduler tracks the last processed message timestamp in the `etl_settings` table. This allows incremental processing without reprocessing old messages.
 
 ### AI Discovery Deduplication
-Before sending messages to Gemini API, the DAG filters out words already in `discovered_words` or `rejected_words` tables to avoid redundant API calls.
+Before sending messages to Gemini API, the processor filters out words already in `discovered_words` or `rejected_words` tables to avoid redundant API calls.
 
 ### Frontend State Management
 Dashboard uses URL query parameters to persist filter state (e.g., time range, word type). This allows direct linking to specific dashboard views.
+
+## CI/CD
+
+GitHub Actions workflow (`.github/workflows/ci.yml`):
+
+1. **detect-changes**: Identifies modified components (backend/frontend/collector)
+2. **test-backend**: Runs pytest with PostgreSQL service container
+3. **build-***: Builds Docker images (on PR/push with changes)
+4. **deploy**: Manual DockerHub deployment via `workflow_dispatch`
+
+```bash
+# Trigger manual deployment with version tag
+# Go to GitHub → Actions → CI/CD Pipeline → Run workflow
+# Input version: v1.0.0 (or leave as 'latest')
+```

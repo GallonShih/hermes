@@ -1,6 +1,6 @@
 # YouTube Live Chat Analyzer Setup Guide
 
-Detailed setup instructions for first-time installation and Airflow configuration.
+Detailed setup instructions for first-time installation.
 
 ---
 
@@ -8,8 +8,8 @@ Detailed setup instructions for first-time installation and Airflow configuratio
 
 - [Prerequisites](#prerequisites)
 - [Environment Variables](#environment-variables)
-- [Airflow Configuration](#airflow-configuration)
-- [Initial DAG Triggers](#initial-dag-triggers)
+- [ETL Configuration](#etl-configuration)
+- [Initial Setup](#initial-setup)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -48,152 +48,117 @@ cp .env.example .env
 | `POLL_INTERVAL` | `60` | Stats polling interval (seconds) |
 | `CHAT_WATCHDOG_TIMEOUT` | `1800` | Restart chat collector if hung (seconds) |
 | `POSTGRES_PASSWORD` | `hermes` | Database password |
+| `ENABLE_ETL_SCHEDULER` | `true` | Enable built-in ETL scheduler |
 
 ---
 
-## Airflow Configuration
+## ETL Configuration
 
-After starting services with `docker-compose up -d`, configure Airflow Variables.
+ETL tasks are managed through the Dashboard Admin panel. No external configuration required.
 
-### Access Airflow Web UI
+### Access ETL Management
 
-- **URL:** http://localhost:8080
-- **Default login:** `airflow` / `airflow`
+1. Open Dashboard: http://localhost:3000
+2. Navigate to **Admin** (top navigation)
+3. Click **ETL Jobs** tab
 
-### PostgreSQL Connection
+### Available ETL Tasks
 
-> ✅ **No manual configuration needed!**
-> 
-> The connection `postgres_chat_db` is **automatically configured** via `docker-compose.yml`:
-> ```yaml
-> AIRFLOW_CONN_POSTGRES_CHAT_DB: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
-> ```
+| Task | Schedule | Description |
+|------|----------|-------------|
+| `import_dicts` | Manual | Import base dictionaries from `text_analysis/` folder |
+| `process_chat_messages` | Hourly | ETL pipeline (word replacement → emoji extraction → tokenization) |
+| `discover_new_words` | Every 3h | AI-powered word discovery using Gemini API |
 
----
+### ETL Settings
 
-## Airflow Variables Reference
+Via **Admin > ETL Jobs > Settings**, you can configure:
 
-Navigate to **Admin → Variables** to configure. Variables are extracted from source code:
-
-### Required Variables
-
-| Variable | Used By | Description |
-|----------|---------|-------------|
-| `GEMINI_API_KEY` | `discover_new_words` | Google Gemini API key for AI word discovery. Falls back to environment variable if not set. |
-
-### Optional Variables (with defaults)
-
-| Variable | Default | Used By | Description |
-|----------|---------|---------|-------------|
-| `DISCOVER_NEW_WORDS_PROMPT` | (built-in prompt) | `discover_new_words` | Custom prompt template for Gemini API analysis |
-| `PROCESS_CHAT_DAG_START_TIME` | 7 days ago | `process_chat_messages` | ISO format timestamp to start processing from (e.g., `2025-01-01T00:00:00`) |
-| `PROCESS_CHAT_DAG_RESET` | `false` | `process_chat_messages` | Set to `true` to truncate processed messages and reprocess from start |
-| `TRUNCATE_REPLACE_WORDS` | `false` | `import_text_analysis_dicts` | Set to `true` to clear `replace_words` table before import |
-| `TRUNCATE_SPECIAL_WORDS` | `false` | `import_text_analysis_dicts` | Set to `true` to clear `special_words` table before import |
-| `MEANINGLESS_WORDS_FILE` | `/opt/airflow/text_analysis/meaningless_words.json` | `import_text_analysis_dicts` | Path to meaningless words JSON file |
-| `REPLACE_WORDS_FILE` | `/opt/airflow/text_analysis/replace_words.json` | `import_text_analysis_dicts` | Path to replace words JSON file |
-| `SPECIAL_WORDS_FILE` | `/opt/airflow/text_analysis/special_words.json` | `import_text_analysis_dicts` | Path to special words JSON file |
-
-### Example Variable Setup (Screenshot)
-
-For first-time setup, you typically only need to add:
-
-1. `GEMINI_API_KEY` - Your Gemini API key
-2. `PROCESS_CHAT_DAG_START_TIME` - When to start processing messages
-
-All other variables have sensible defaults.
+| Setting | Description |
+|---------|-------------|
+| `PROCESS_CHAT_START_TIME` | Start processing from this timestamp |
+| `PROCESS_CHAT_BATCH_SIZE` | Number of messages per batch |
+| `DISCOVER_NEW_WORDS_ENABLED` | Enable/disable AI discovery |
+| `DISCOVER_NEW_WORDS_MIN_CONFIDENCE` | Minimum confidence score for discoveries |
 
 ---
 
-## Initial DAG Triggers
+## Initial Setup
 
-DAGs run on schedule, but for first-time setup, trigger them manually in this order:
+### Step 1: Start Services
 
-### Step 1: Import Dictionaries
+```bash
+# Start all services
+docker-compose up -d
 
-**DAG:** `import_text_analysis_dicts`
+# Verify all containers are running
+docker-compose ps
+```
 
-Imports base dictionaries from `text_analysis/` folder into the database:
+### Step 2: Import Dictionaries (First Time Only)
+
+1. Open Dashboard: http://localhost:3000/admin
+2. Go to **ETL Jobs** tab
+3. Find `import_dicts` task
+4. Click **Trigger** button
+
+This imports base dictionaries from `text_analysis/` folder:
 - `special_words.json` → `special_words` table
 - `replace_words.json` → `replace_words` table
 - `meaningless_words.json` → `meaningless_words` table
 
-```
-Airflow UI → DAGs → import_text_analysis_dicts → ▶️ Trigger DAG
-```
+### Step 3: Verify ETL is Running
 
-> ⚡ **Schedule:** Manual only (`schedule_interval=None`)
+Check the ETL scheduler status:
 
-### Step 2: Process Chat Messages
-
-**DAG:** `process_chat_messages`
-
-Runs ETL on raw chat messages:
-- Applies word replacements
-- Extracts Unicode emojis and YouTube emotes
-- Tokenizes Chinese text with Jieba
-
-```
-Airflow UI → DAGs → process_chat_messages → ▶️ Trigger DAG
+```bash
+curl http://localhost:8000/api/admin/etl/status
 ```
 
-> ⏰ **Schedule:** Runs every hour automatically (`0 * * * *`)
-
-### Step 3: Discover New Words
-
-**DAG:** `discover_new_words`
-
-Uses Gemini AI to find new slang, memes, and typos from chat messages:
-
-```
-Airflow UI → DAGs → discover_new_words → ▶️ Trigger DAG
+Expected response:
+```json
+{
+  "scheduler_running": true,
+  "jobs_count": 3
+}
 ```
 
-> ⏰ **Schedule:** Runs every 3 hours automatically (`0 */3 * * *`)
-> 
-> ⚠️ **Requires:** `GEMINI_API_KEY` in Airflow Variables
+### Step 4: Start Collecting Data
 
----
+The collector service starts automatically with `docker-compose up`. Verify it's working:
 
-## DAG Dependency Order
-
-```mermaid
-flowchart LR
-    A[import_text_analysis_dicts] --> B[process_chat_messages]
-    B --> C[discover_new_words]
-    
-    style A fill:#4CAF50,color:#fff
-    style B fill:#2196F3,color:#fff
-    style C fill:#9C27B0,color:#fff
+```bash
+docker-compose logs -f collector
 ```
 
-| Order | DAG | Purpose | Trigger |
-|-------|-----|---------|---------|
-| 1️⃣ | `import_text_analysis_dicts` | Load base dictionaries | Manual (once) |
-| 2️⃣ | `process_chat_messages` | ETL pipeline | Hourly (auto) |
-| 3️⃣ | `discover_new_words` | AI word discovery | Every 3h (auto) |
+You should see log messages about chat collection starting.
 
 ---
 
 ## Troubleshooting
 
-### Airflow Variables not found
+### ETL Tasks Not Running
 
-```
-ValueError: GEMINI_API_KEY not found in Airflow Variables or Environment Variables
-```
-
-**Solution:** Add `GEMINI_API_KEY` in Airflow UI → Admin → Variables
-
-### DAG not appearing in Airflow
-
-**Solution:** Check DAG syntax errors:
+**Solution:** Check if scheduler is enabled:
 
 ```bash
-docker-compose exec airflow-webserver airflow dags list
+# Check scheduler status
+curl http://localhost:8000/api/admin/etl/status
+
+# Check environment variable
+echo $ENABLE_ETL_SCHEDULER
 ```
 
-### PostgreSQL connection failed
+Ensure `ENABLE_ETL_SCHEDULER=true` in your `.env` file.
+
+### AI Discovery Not Working
+
+**Solution:** Verify Gemini API key is set:
+
+1. Check `.env` file has `GEMINI_API_KEY`
+2. Restart backend: `docker-compose restart dashboard-backend`
+
+### PostgreSQL Connection Failed
 
 **Solution:** Ensure PostgreSQL container is healthy:
 
@@ -202,23 +167,33 @@ docker-compose ps postgres
 docker-compose logs postgres
 ```
 
+### View ETL Execution Logs
+
+Via Dashboard:
+1. Go to **Admin > ETL Jobs**
+2. Click **Logs** tab
+
+Via API:
+```bash
+curl http://localhost:8000/api/admin/etl/logs
+```
+
 ---
 
 ## Service URLs Summary
 
-| Service | URL | Default Credentials |
-|---------|-----|---------------------|
-| Dashboard | http://localhost:3000 | - |
-| API Docs (Swagger) | http://localhost:8000/docs | - |
-| Airflow | http://localhost:8080 | `airflow` / `airflow` |
-| pgAdmin | http://localhost:5050 | See `.env` |
+| Service | URL | Description |
+|---------|-----|-------------|
+| Dashboard | http://localhost:3000 | Main UI |
+| API Docs (Swagger) | http://localhost:8000/docs | REST API documentation |
+| pgAdmin | http://localhost:5050 | Database administration |
 
 ---
 
 ## Next Steps
 
 1. ✅ Start collecting chat messages (automatic via `collector` service)
-2. ✅ Process messages with ETL (automatic via Airflow)
+2. ✅ Process messages with ETL (automatic via built-in scheduler)
 3. 🎯 Review AI-discovered words in Dashboard Admin panel
 4. 📊 Explore data in Dashboard or via API
 
