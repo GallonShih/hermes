@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, BigInteger, DateTime, JSON, Numeric
+from sqlalchemy import Column, Integer, String, Text, BigInteger, DateTime, JSON, Numeric, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 import datetime
@@ -216,3 +216,52 @@ class WordTrendGroup(Base):
         return f"<WordTrendGroup(id={self.id}, name={self.name}, words_count={len(self.words) if self.words else 0})>"
 
 
+class ETLSetting(Base):
+    __tablename__ = 'etl_settings'
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text)
+    value_type = Column(String(20), default='string')  # string, text, boolean, integer, float, datetime
+    description = Column(Text)
+    is_sensitive = Column(Boolean, default=False)
+    category = Column(String(50))  # api, etl, import, ai
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+    updated_by = Column(String(100), default='system')
+
+    def __repr__(self):
+        return f"<ETLSetting(key={self.key}, category={self.category})>"
+
+
+class ETLExecutionLog(Base):
+    __tablename__ = 'etl_execution_log'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String(100), nullable=False)
+    job_name = Column(String(255), nullable=False)
+    status = Column(String(20), default='running')  # running, completed, failed
+    started_at = Column(DateTime(timezone=True), nullable=False, default=func.current_timestamp())
+    completed_at = Column(DateTime(timezone=True))
+    duration_seconds = Column(Integer)
+    records_processed = Column(Integer, default=0)
+    error_message = Column(Text)
+    log_metadata = Column('metadata', JSON)  # Map to 'metadata' column in DB
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<ETLExecutionLog(id={self.id}, job_id={self.job_id}, status={self.status})>"
+
+
+class PromptTemplate(Base):
+    __tablename__ = 'prompt_templates'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False, unique=True)
+    description = Column(Text)
+    template = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+    created_by = Column(String(100), default='admin')
+
+    def __repr__(self):
+        return f"<PromptTemplate(id={self.id}, name={self.name}, is_active={self.is_active})>"
