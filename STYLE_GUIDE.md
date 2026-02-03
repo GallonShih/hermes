@@ -1,4 +1,4 @@
-# Hermes Dashboard - 視覺風格指南
+# YouTube Live Chat Analyzer - 視覺風格指南
 
 > **設計系統**: Glassmorphism + 數據儀表板專用配色
 > **最後更新**: 2026-02-01
@@ -290,7 +290,7 @@ export function GlassCard({ children, className = '', hover = true }) {
   <div className="max-w-7xl mx-auto flex justify-between items-center">
     {/* Logo */}
     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-      Hermes 監控儀表板
+      YouTube Live Chat Analyzer
     </h1>
 
     {/* Navigation Links */}
@@ -818,5 +818,5 @@ export function GlassCard({ children, className = '', hover = true }) {
 
 ---
 
-**設計系統完整文檔**: `design-system/design-system/hermes-dashboard/MASTER.md`
+**設計系統完整文檔**: `design-system/design-system/youtube-live-chat-analyzer/MASTER.md`
 **UX 審查報告**: `UX_AUDIT_REPORT.md`

@@ -1,5 +1,5 @@
 """
-Main application for Hermes Worker
+Main application for Collector Worker
 Coordinates chat collection and stats polling
 """
 
@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class HermesWorker:
+class CollectorWorker:
     def __init__(self, youtube_url=None):
         # Use URL from DB first, then config, then parameter
         self.youtube_url = youtube_url or Config.get_youtube_url_from_db()
@@ -43,8 +43,8 @@ class HermesWorker:
         self._restart_lock = threading.Lock()
 
     def start(self):
-        """Start the Hermes worker"""
-        logger.info("=== Starting Hermes Worker ===")
+        """Start the Collector worker"""
+        logger.info("=== Starting Collector Worker ===")
         Config.print_config()
 
         # Validate configuration
@@ -106,8 +106,8 @@ class HermesWorker:
             self.stop()
 
     def stop(self):
-        """Stop the Hermes worker"""
-        logger.info("=== Stopping Hermes Worker ===")
+        """Stop the Collector worker"""
+        logger.info("=== Stopping Collector Worker ===")
 
         self.is_running = False
 
@@ -268,7 +268,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Create and start worker (will use URL from DB/env if not provided)
-    worker = HermesWorker(youtube_url)
+    worker = CollectorWorker(youtube_url)
 
     try:
         worker.start()

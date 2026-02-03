@@ -26,7 +26,7 @@ from word_discovery_logic import filter_and_validate_words, format_transformatio
 
 # 默認參數
 default_args = {
-    'owner': 'hermes',
+    'owner': 'analyzer',
     'depends_on_past': False,
     'start_date': datetime(2025, 1, 2),
     'email_on_failure': False,
@@ -50,7 +50,7 @@ def create_tables_if_not_exists(**context):
     """
     Task 0: 創建詞彙發現相關的資料表（如果不存在）
     """
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     create_tables_sql = """
     -- 待審核的替換詞彙表
@@ -139,7 +139,7 @@ def initialize_analysis(**context):
     """
     run_id = f"word_discovery_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     # 創建分析記錄
     insert_log_sql = """
@@ -169,7 +169,7 @@ def fetch_new_messages(**context):
     Task 2: 獲取檢查點時間
     從上次分析的檢查點開始並計算待處理留言數量
     """
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     # 獲取上次分析的時間點
     checkpoint_sql = """
@@ -216,7 +216,7 @@ def load_existing_dictionaries(**context):
     Task 3: 載入現有字典
     載入所有已存在的詞彙，用於去重和驗證
     """
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     # 載入所有替換詞彙（source 和 target）
     replace_sql = """
@@ -284,7 +284,7 @@ def analyze_with_gemini(**context):
     last_analyzed_time = datetime.fromisoformat(last_analyzed_time_str)
 
     # 直接從資料庫獲取留言（避免 XCom 大量資料傳遞）
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
     fetch_messages_sql = """
         SELECT message_id, message, author_name, published_at
         FROM chat_messages
@@ -484,7 +484,7 @@ def save_discoveries(**context):
         print("No filtered results to save")
         return {'saved': 0}
 
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     saved_count = 0
 
@@ -624,7 +624,7 @@ def update_checkpoint(**context):
     last_message_id = last_message_info['message_id']
     last_message_time = last_message_info['published_at']
 
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     update_sql = """
         UPDATE word_analysis_checkpoint
@@ -655,7 +655,7 @@ def finalize_analysis(**context):
     messages_analyzed = context['task_instance'].xcom_pull(task_ids='analyze_with_gemini', key='messages_analyzed_count') or 0
     save_result = context['task_instance'].xcom_pull(task_ids='save_discoveries')
 
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     # 計算執行時間
     start_time_str = context['task_instance'].xcom_pull(task_ids='initialize_analysis')['start_time']

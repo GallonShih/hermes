@@ -1,4 +1,4 @@
-# Hermes Dashboard - UI/UX 審查報告
+# YouTube Live Chat Analyzer - UI/UX 審查報告
 
 **審查日期**: 2026-02-01
 **審查範圍**: Dashboard Frontend (React + Tailwind)
@@ -8,7 +8,7 @@
 ## 📊 執行摘要
 
 ### 當前狀態
-您的 Hermes 儀表板是一個功能完整的實時聊天數據分析平台，具有：
+您的 YouTube Live Chat Analyzer 是一個功能完整的實時聊天數據分析平台，具有：
 - ✅ 清晰的數據可視化（雙軸圖表、文字雲、趨勢分析）
 - ✅ 完整的功能模塊（Dashboard、Playback、Trends、Admin）
 - ✅ 響應式布局（mobile-first）
@@ -302,7 +302,7 @@ export function Navbar() {
         <nav className="fixed top-4 left-4 right-4 z-50 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 px-6 py-3">
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Hermes 監控儀表板
+                    YouTube Live Chat Analyzer
                 </h1>
 
                 <div className="flex gap-2">

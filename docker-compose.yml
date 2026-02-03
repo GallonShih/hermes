@@ -28,8 +28,8 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-    # Hermes PostgreSQL connection (使用环境变量构建连接字符串)
-    AIRFLOW_CONN_POSTGRES_HERMES: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+    # PostgreSQL connection
+    AIRFLOW_CONN_POSTGRES_CHAT_DB: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
@@ -46,12 +46,12 @@ x-airflow-common:
     postgres:
       condition: service_healthy
   networks:
-    - hermes-network
+    - analyzer-network
 
 services:
   postgres:
     image: postgres:15
-    container_name: hermes-postgres
+    container_name: youtube-chat-analyzer-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-hermes}
       POSTGRES_USER: ${POSTGRES_USER:-hermes}
@@ -62,35 +62,35 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
     networks:
-      - hermes-network
+      - analyzer-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hermes}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  hermes-worker:
-    # To rebuild: docker build -t hermes-worker:v1.0.1 ./hermes_worker
-    build: ./hermes_worker
-    image: hermes-worker:v1.0.1
-    container_name: hermes-worker
+  collector:
+    # To rebuild: docker build -t gallonshih/youtube-chat-analyzer-collector:latest ./collector
+    build: ./collector
+    image: gallonshih/youtube-chat-analyzer-collector:latest
+    container_name: youtube-chat-analyzer-collector
     env_file:
       - .env
     volumes:
       # Mount source code for development
-      - ./hermes_worker:/app
+      - ./collector:/app
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - hermes-network
+      - analyzer-network
     restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4:8.12
-    container_name: hermes-pgadmin
+    container_name: youtube-chat-analyzer-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@hermes.local}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@analyzer.local}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
     ports:
       - "${PGADMIN_PORT:-5050}:80"
@@ -98,7 +98,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - hermes-network
+      - analyzer-network
     restart: unless-stopped
     volumes:
       - pgadmin_data:/var/lib/pgadmin
@@ -118,7 +118,7 @@ services:
       start_period: 30s
     restart: always
     networks:
-      - hermes-network
+      - analyzer-network
 
   # Airflow ETL Services
   airflow-webserver:
@@ -292,8 +292,8 @@ services:
 
   dashboard-backend:
     build: ./dashboard/backend
-    image: hermes-dashboard-backend:v1.0.1
-    container_name: hermes-dashboard-backend
+    image: gallonshih/youtube-chat-analyzer-backend:latest
+    container_name: youtube-chat-analyzer-backend
     ports:
       - "8000:8000"
     environment:
@@ -305,13 +305,13 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - hermes-network
+      - analyzer-network
     restart: unless-stopped
 
   dashboard-frontend:
     build: ./dashboard/frontend
-    image: hermes-dashboard-frontend:v1.0.1
-    container_name: hermes-dashboard-frontend
+    image: gallonshih/youtube-chat-analyzer-frontend:latest
+    container_name: youtube-chat-analyzer-frontend
     env_file:
       - .env
     ports:
@@ -321,11 +321,11 @@ services:
     depends_on:
       - dashboard-backend
     networks:
-      - hermes-network
+      - analyzer-network
     restart: unless-stopped
 
 networks:
-  hermes-network:
+  analyzer-network:
     driver: bridge
 
 volumes:

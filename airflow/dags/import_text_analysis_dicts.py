@@ -22,7 +22,7 @@ from psycopg2.extras import execute_values
 
 # 默認參數
 default_args = {
-    'owner': 'hermes',
+    'owner': 'analyzer',
     'depends_on_past': False,
     'start_date': datetime(2025, 1, 2),
     'email_on_failure': False,
@@ -46,7 +46,7 @@ def create_tables_if_not_exists(**context):
     創建文字分析相關的資料表（如果不存在）
     """
     # 獲取資料庫連接
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
 
     # 創建表的 SQL
     create_tables_sql = """
@@ -135,7 +135,7 @@ def import_meaningless_words(**context):
         return {'processed': 0, 'total': 0}
 
     # 使用批次插入
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
     conn = pg_hook.get_conn()
     cursor = conn.cursor()
 
@@ -176,7 +176,7 @@ def truncate_replace_words(**context):
     
     if truncate_flag.lower() == "true":
         print("TRUNCATE_REPLACE_WORDS is TRUE - truncating table")
-        pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+        pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
         pg_hook.run("TRUNCATE TABLE replace_words;")
         
         # 重設 flag 為 false
@@ -211,7 +211,7 @@ def import_replace_words(**context):
         return {'processed': 0, 'total': 0}
 
     # 使用批次插入（ON CONFLICT DO UPDATE 需要逐條處理以正確更新）
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
     conn = pg_hook.get_conn()
     cursor = conn.cursor()
 
@@ -255,7 +255,7 @@ def truncate_special_words(**context):
     
     if truncate_flag.lower() == "true":
         print("TRUNCATE_SPECIAL_WORDS is TRUE - truncating table")
-        pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+        pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
         pg_hook.run("TRUNCATE TABLE special_words;")
         
         # 重設 flag 為 false
@@ -290,7 +290,7 @@ def import_special_words(**context):
         return {'processed': 0, 'total': 0}
 
     # 使用批次插入
-    pg_hook = PostgresHook(postgres_conn_id='postgres_hermes')
+    pg_hook = PostgresHook(postgres_conn_id='postgres_chat_db')
     conn = pg_hook.get_conn()
     cursor = conn.cursor()
 

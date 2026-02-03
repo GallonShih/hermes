@@ -1,5 +1,5 @@
 """
-Configuration management for Hermes Worker
+Configuration management for Collector Worker
 """
 
 import os
@@ -82,7 +82,7 @@ class Config:
         youtube_url = cls.get_youtube_url_from_db()
         url_source = "DB" if youtube_url != cls.YOUTUBE_URL else "ENV"
         
-        print("=== Hermes Worker Configuration ===")
+        print("=== Collector Worker Configuration ===")
         print(f"DATABASE_URL: {'***' if cls.DATABASE_URL else 'NOT SET'}")
         print(f"YOUTUBE_API_KEY: {'***' if cls.YOUTUBE_API_KEY else 'NOT SET'}")
         print(f"YOUTUBE_URL: {youtube_url} (from {url_source})")

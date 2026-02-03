@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/hermes_logo.png" alt="Hermes Logo" width="80"/>
+  <img src="docs/hermes_logo.png" alt="Project Logo" width="80"/>
 </p>
 
-<h1 align="center">⚡ Hermes</h1>
+<h1 align="center">YouTube Live Chat Analyzer</h1>
 
 <p align="center">
   <strong>YouTube Live Stream Chat Collection & Analysis System</strong>
@@ -20,9 +20,9 @@
 
 ---
 
-## 🪽 What is Hermes?
+## 🪽 What is YouTube Live Chat Analyzer?
 
-**Hermes** — named after the Greek god of messages and communication — is a complete data pipeline for collecting, processing, and visualizing YouTube live stream chat messages in real-time.
+**YouTube Live Chat Analyzer** is a complete data pipeline for collecting, processing, and visualizing YouTube live stream chat messages in real-time.
 
 The system captures chat messages from live streams, processes them through NLP pipelines (Chinese tokenization, emoji extraction), and uses **Gemini AI** to automatically discover new slang, memes, and typos from the community.
 
@@ -58,7 +58,8 @@ The system captures chat messages from live streams, processes them through NLP 
 ## 🏗️ Architecture
 
 <p align="center">
-  <img src="docs/architecture.svg" alt="Hermes Architecture" width="1000"/>
+  <!-- TODO: Update Architecture Diagram with new service names -->
+  <img src="docs/architecture.svg" alt="Architecture" width="1000"/>
 </p>
 
 ---
@@ -75,8 +76,8 @@ The system captures chat messages from live streams, processes them through NLP 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/GallonShih/hermes.git
-cd hermes
+git clone https://github.com/GallonShih/youtube-live-chat-analyzer.git
+cd youtube-live-chat-analyzer
 
 # 2. Configure environment variables
 cp .env.example .env
@@ -115,8 +116,8 @@ open http://localhost:3000
 ## 📁 Project Structure
 
 ```
-hermes/
-├── hermes_worker/       # Chat collection service (Python)
+youtube-live-chat-analyzer/
+├── collector/           # Chat collection service (Python)
 │   ├── main.py          # Entry point: coordinates collection & stats polling
 │   ├── chat_collector.py# Real-time chat message collection
 │   └── youtube_api.py   # YouTube Data API integration
@@ -153,7 +154,7 @@ For detailed development commands and guidelines, see [CLAUDE.md](./CLAUDE.md).
 
 ```bash
 # View logs
-docker-compose logs -f hermes-worker
+docker-compose logs -f collector
 
 # Rebuild a specific service
 docker-compose up -d --build dashboard-backend

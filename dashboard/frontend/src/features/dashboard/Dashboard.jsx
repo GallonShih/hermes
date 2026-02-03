@@ -313,7 +313,7 @@ function Dashboard() {
             <div className="max-w-7xl mx-auto p-4 md:p-8">
                 {/* Header with Title and Navigation */}
                 <div className="flex justify-between items-center mb-6 relative">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">Hermes 監控儀表板</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">YouTube Live Chat Analyzer</h1>
                     <Navigation />
                 </div>
 

@@ -9,7 +9,7 @@ from app.routers import stats, chat, admin_words, admin_currency, admin_settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Hermes Dashboard API")
+app = FastAPI(title="YouTube Live Chat Analyzer API")
 
 setup_cors(app)
 

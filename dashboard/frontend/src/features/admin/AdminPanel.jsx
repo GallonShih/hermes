@@ -20,7 +20,7 @@ const AdminPanel = () => {
                 <header className="flex justify-between items-center mb-6 relative">
                     <h1 className="flex items-center gap-2 text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">
                         <Cog6ToothIcon className="w-6 h-6 sm:w-8 sm:h-8" />
-                        <span className="hidden sm:inline">Hermes Admin Panel</span>
+                        <span className="hidden sm:inline">Admin Panel</span>
                         <span className="sm:hidden">Admin</span>
                     </h1>
                     <Navigation />

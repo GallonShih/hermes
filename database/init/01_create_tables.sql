@@ -1,4 +1,4 @@
--- Hermes Database Schema
+-- YouTube Live Chat Analyzer Database Schema
 -- YouTube Live Chat Collection and Analysis System
 
 -- Create chat_messages table

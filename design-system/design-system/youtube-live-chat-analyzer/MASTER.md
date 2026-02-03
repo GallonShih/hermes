@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Hermes Dashboard
+**Project:** YouTube Live Chat Analyzer Dashboard
 **Generated:** 2026-02-01 11:58:26
 **Category:** SaaS (General)
 

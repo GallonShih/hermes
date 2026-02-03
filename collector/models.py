@@ -1,5 +1,5 @@
 """
-SQLAlchemy ORM models for Hermes
+SQLAlchemy ORM models for YouTube Chat Analyzer
 """
 
 from sqlalchemy import Column, Integer, String, Text, BigInteger, DateTime, JSON

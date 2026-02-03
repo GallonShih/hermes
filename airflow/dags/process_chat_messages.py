@@ -28,11 +28,11 @@ from text_processor import process_messages_batch
 
 # 常數配置
 BATCH_SIZE = 1000  # 每批處理的留言數量
-DB_CONN_ID = 'postgres_hermes'
+DB_CONN_ID = 'postgres_chat_db'
 
 # 默認參數
 default_args = {
-    'owner': 'hermes',
+    'owner': 'analyzer',
     'depends_on_past': False,
     'start_date': datetime(2025, 1, 13),
     'email_on_failure': False,

@@ -4,13 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hermes is a complete data pipeline for collecting, processing, and visualizing YouTube live stream chat messages in real-time. It captures chat messages, processes them through NLP pipelines (Chinese tokenization, emoji extraction), and uses Gemini AI to automatically discover new slang, memes, and typos from the community.
+## Project Overview
+
+**YouTube Live Chat Analyzer** is a complete data pipeline for collecting, processing, and visualizing YouTube live stream chat messages in real-time. It captures chat messages, processes them through NLP pipelines (Chinese tokenization, emoji extraction), and uses Gemini AI to automatically discover new slang, memes, and typos from the community.
 
 ## Architecture
 
 The system consists of five main components:
 
-1. **hermes-worker**: Real-time chat collection using `chat-downloader` + YouTube Data API stats polling
+1. **collector**: Real-time chat collection using `chat-downloader` + YouTube Data API stats polling
 2. **PostgreSQL**: Central database storing raw messages, processed tokens, and analysis results
 3. **Airflow**: ETL orchestration (3 DAGs: dictionary imports, message processing, AI word discovery)
 4. **Dashboard Backend**: FastAPI REST API serving data and admin operations
@@ -19,7 +21,7 @@ The system consists of five main components:
 ### Service Communication Flow
 
 ```
-YouTube Live → hermes-worker → PostgreSQL
+YouTube Live → collector → PostgreSQL
                                     ↓
                     Airflow DAGs (ETL + AI Discovery)
                                     ↓
@@ -44,14 +46,14 @@ docker-compose down
 
 Rebuild specific service:
 ```bash
-docker-compose up -d --build hermes-worker
+docker-compose up -d --build collector
 docker-compose up -d --build dashboard-backend
 docker-compose up -d --build dashboard-frontend
 ```
 
 View logs:
 ```bash
-docker-compose logs -f hermes-worker
+docker-compose logs -f collector
 docker-compose logs -f airflow-scheduler
 docker-compose logs -f dashboard-backend
 ```
@@ -102,7 +104,7 @@ All configuration is managed through `.env` file (copy from `.env.example`):
 
 ### Airflow Configuration
 - `_PIP_ADDITIONAL_REQUIREMENTS`: Python packages for Airflow workers (default includes Gemini SDK, Jieba, emoji)
-- Connection `postgres_hermes` is auto-configured via `AIRFLOW_CONN_POSTGRES_HERMES` environment variable
+- Connection `postgres_chat_db` is auto-configured via `AIRFLOW_CONN_POSTGRES_CHAT_DB` environment variable
 
 ### Airflow Variables (Set in UI: Admin → Variables)
 - `GEMINI_API_KEY`: Required for `discover_new_words` DAG
@@ -136,9 +138,9 @@ See `docs/SETUP.md` for detailed first-time setup instructions including Airflow
 
 ## Development Guidelines
 
-### hermes_worker Service
+### Collector Service
 
-Entry point: `hermes_worker/main.py` (HermesWorker class)
+Entry point: `collector/main.py` (CollectorWorker class)
 
 Key components:
 - `chat_collector.py`: Uses `chat-downloader` library, implements watchdog timer and retry logic
@@ -157,7 +159,7 @@ Located in `airflow/dags/`:
 2. **`process_chat_messages.py`**: Hourly ETL pipeline (word replacement → emoji extraction → Jieba tokenization)
 3. **`discover_new_words.py`**: Every 3 hours, uses Gemini API to find new slang/memes from unprocessed messages
 
-DAGs use the `postgres_hermes` connection (auto-configured via environment variable).
+DAGs use the `postgres_chat_db` connection (auto-configured via environment variable).
 
 Shared logic:
 - `text_processor.py`: Jieba tokenization, emoji extraction, word replacement

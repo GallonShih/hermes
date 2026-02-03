@@ -1,5 +1,5 @@
 """
-Database connection and session management for Hermes
+Database connection and session management for YouTube Chat Analyzer
 """
 
 import os

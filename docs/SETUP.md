@@ -1,4 +1,4 @@
-# Hermes Setup Guide
+# YouTube Live Chat Analyzer Setup Guide
 
 Detailed setup instructions for first-time installation and Airflow configuration.
 
@@ -64,9 +64,9 @@ After starting services with `docker-compose up -d`, configure Airflow Variables
 
 > ✅ **No manual configuration needed!**
 > 
-> The connection `postgres_hermes` is **automatically configured** via `docker-compose.yml`:
+> The connection `postgres_chat_db` is **automatically configured** via `docker-compose.yml`:
 > ```yaml
-> AIRFLOW_CONN_POSTGRES_HERMES: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+> AIRFLOW_CONN_POSTGRES_CHAT_DB: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
 > ```
 
 ---
@@ -217,7 +217,7 @@ docker-compose logs postgres
 
 ## Next Steps
 
-1. ✅ Start collecting chat messages (automatic via `hermes-worker`)
+1. ✅ Start collecting chat messages (automatic via `collector` service)
 2. ✅ Process messages with ETL (automatic via Airflow)
 3. 🎯 Review AI-discovered words in Dashboard Admin panel
 4. 📊 Explore data in Dashboard or via API
