@@ -298,9 +298,15 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-hermes}:${POSTGRES_PASSWORD:-hermes}@postgres:5432/${POSTGRES_DB:-hermes}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENABLE_ETL_SCHEDULER: ${ENABLE_ETL_SCHEDULER:-true}
+      TEXT_ANALYSIS_DIR: /app/text_analysis
+      STOPWORDS_FILE: /app/text_analysis/cn_stopwords.txt
     volumes:
       # Mount source code for development (hot reload)
       - ./dashboard/backend:/app
+      # Mount text analysis dictionaries for ETL tasks
+      - ./text_analysis:/app/text_analysis:ro
     depends_on:
       postgres:
         condition: service_healthy

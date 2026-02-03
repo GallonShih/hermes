@@ -29,16 +29,53 @@
 
 ### Phase 1: 基礎建設
 
-- [ ] **Task 1.1** - 建立 ETL Settings 資料表
-- [ ] **Task 1.2** - 建立 ETL Scheduler 模組
-- [ ] **Task 1.3** - 遷移 ETL 邏輯為獨立函數
-- [ ] **Task 1.4** - 建立 FastAPI ETL Jobs Router
-- [ ] **Task 1.5** - 建立 Dashboard ETL 管理頁面
+- [x] **Task 1.1** - 建立 ETL Settings 資料表
+  > ✅ 完成於 2026-02-03
+  > 建立 `database/init/13_create_etl_settings.sql`（修正檔名為 13，因為 12 已存在）
+  > 包含 `etl_settings` 和 `etl_execution_log` 兩個表
+
+- [x] **Task 1.2** - 建立 ETL Scheduler 模組
+  > ✅ 完成於 2026-02-03
+  > 建立 `dashboard/backend/app/etl/scheduler.py`
+  > 使用 BackgroundScheduler + SQLAlchemyJobStore
+
+- [x] **Task 1.3** - 遷移 ETL 邏輯為獨立函數
+  > ✅ 完成於 2026-02-03
+  > 建立完整的 `dashboard/backend/app/etl/` 目錄結構：
+  > - `__init__.py` - 模組匯出
+  > - `config.py` - ETLConfig 設定管理類別
+  > - `scheduler.py` - APScheduler 管理
+  > - `tasks.py` - 任務入口和註冊表
+  > - `processors/text_processor.py` - 文字處理邏輯
+  > - `processors/chat_processor.py` - ChatProcessor 類別
+  > - `processors/word_discovery.py` - WordDiscoveryProcessor 類別
+  > - `processors/dict_importer.py` - DictImporter 類別
+
+- [x] **Task 1.4** - 建立 FastAPI ETL Jobs Router
+  > ✅ 完成於 2026-02-03
+  > 建立 `dashboard/backend/app/routers/etl_jobs.py`
+  > 包含：列出任務、觸發、暫停、恢復、執行記錄、設定管理等 API
+
+- [x] **Task 1.5** - 建立 Dashboard ETL 管理頁面
+  > ✅ 完成於 2026-02-03
+  > 建立 `dashboard/frontend/src/features/admin/ETLJobsManager.jsx`
+  > 建立 `dashboard/frontend/src/api/etl.js`
+  > 修改 `AdminPanel.jsx` 加入 ETL Jobs 標籤頁
 
 ### Phase 2: 整合與測試
 
-- [ ] **Task 2.1** - 整合 Scheduler 到 Backend
-- [ ] **Task 2.2** - 實作 Settings API 與 UI
+- [x] **Task 2.1** - 整合 Scheduler 到 Backend
+  > ✅ 完成於 2026-02-03
+  > 修改 `dashboard/backend/main.py`：
+  > - 使用 FastAPI lifespan 處理啟動/關閉
+  > - 加入 ETL scheduler 初始化
+  > - 支援 `ENABLE_ETL_SCHEDULER` 環境變數控制
+
+- [x] **Task 2.2** - 實作 Settings API 與 UI
+  > ✅ 完成於 2026-02-03
+  > ETL Settings API 已整合在 `etl_jobs.py` router 中
+  > 修改 `docker-compose.yml` 加入環境變數和 text_analysis 掛載
+
 - [ ] **Task 2.3** - 測試所有 ETL 任務
 - [ ] **Task 2.4** - 並行運行驗證
 
@@ -51,333 +88,42 @@
 
 ---
 
-## 📝 詳細任務規格
+## 📝 實作摘要
 
-### Task 1.1: 建立 ETL Settings 資料表
+### 已建立的檔案
 
-**檔案**: `database/migrations/014_create_etl_settings.sql`
+#### 資料庫
+- `database/init/13_create_etl_settings.sql` - ETL 設定表和執行日誌表
 
-**SQL Schema**:
-```sql
-CREATE TABLE etl_settings (
-    key VARCHAR(100) PRIMARY KEY,
-    value TEXT,
-    value_type VARCHAR(20) DEFAULT 'string',
-    description TEXT,
-    is_sensitive BOOLEAN DEFAULT FALSE,
-    category VARCHAR(50),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_by VARCHAR(100) DEFAULT 'system'
-);
-
--- 插入預設值
-INSERT INTO etl_settings (key, value, value_type, description, category, is_sensitive) VALUES
-('GEMINI_API_KEY', '', 'string', 'Google Gemini API 金鑰', 'api', true),
-('DISCOVER_NEW_WORDS_PROMPT', '預設提示詞...', 'text', 'AI 分析提示詞範本', 'ai', false),
-('PROCESS_CHAT_START_TIME', '2025-01-01T00:00:00', 'datetime', '處理起始時間', 'etl', false),
-('PROCESS_CHAT_RESET', 'false', 'boolean', '重置處理表', 'etl', false),
-('TRUNCATE_REPLACE_WORDS', 'false', 'boolean', '清空替換詞表', 'import', false),
-('TRUNCATE_SPECIAL_WORDS', 'false', 'boolean', '清空特殊詞表', 'import', false);
-
-CREATE INDEX idx_etl_settings_category ON etl_settings(category);
-```
-
-**驗收標準**:
-- ✅ 表格建立成功
-- ✅ 所有預設值正確插入
-- ✅ 可透過 pgAdmin 查看
-
----
-
-### Task 1.2: 建立 ETL Scheduler 模組
-
-**新檔案**: `dashboard/backend/app/etl/scheduler.py`
-
-**核心功能**:
-```python
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-import logging
-
-logger = logging.getLogger(__name__)
-
-# Global scheduler instance
-scheduler = None
-
-def init_scheduler(database_url: str):
-    """初始化 APScheduler"""
-    global scheduler
-    
-    jobstores = {
-        'default': SQLAlchemyJobStore(url=database_url)
-    }
-    
-    scheduler = BackgroundScheduler(
-        jobstores=jobstores,
-        job_defaults={
-            'coalesce': False,
-            'max_instances': 1
-        }
-    )
-    
-    # 註冊排程任務
-    from app.etl.tasks import process_chat_messages, discover_new_words
-    
-    scheduler.add_job(
-        process_chat_messages,
-        'cron',
-        hour='*',
-        id='process_chat',
-        name='Process Chat Messages',
-        replace_existing=True
-    )
-    
-    scheduler.add_job(
-        discover_new_words,
-        'cron',
-        hour='*/3',
-        id='discover_words',
-        name='Discover New Words',
-        replace_existing=True
-    )
-    
-    scheduler.start()
-    logger.info("✅ ETL Scheduler started")
-
-def get_scheduler():
-    return scheduler
-
-def shutdown_scheduler():
-    if scheduler:
-        scheduler.shutdown()
-```
-
-**注意事項**:
-- ⚠️ 使用 BackgroundScheduler（非 BlockingScheduler）
-- ⚠️ jobstore 使用 PostgreSQL 持久化（重啟不遺失）
-- ⚠️ `max_instances=1` 確保同一任務不重複執行
-
-**驗收標準**:
-- ✅ Scheduler 可正常啟動
-- ✅ 任務註冊成功
-- ✅ 不阻塞 FastAPI 主執行緒
-
----
-
-### Task 1.3: 遷移 ETL 邏輯為獨立函數
-
-**新檔案結構**:
+#### 後端 ETL 模組
 ```
 dashboard/backend/app/etl/
-├── __init__.py
-├── scheduler.py          # Scheduler 初始化
-├── config.py            # ETL 設定讀取
-├── tasks.py             # 任務入口函數
+├── __init__.py              # 模組匯出
+├── config.py                # ETLConfig 設定管理（DB → ENV → Default）
+├── scheduler.py             # APScheduler 管理
+├── tasks.py                 # 任務入口函數和 TASK_REGISTRY
 └── processors/
-    ├── chat_processor.py      # 處理聊天訊息邏輯
-    ├── word_discovery.py      # AI 發現詞彙邏輯
-    └── dict_importer.py       # 字典匯入邏輯
+    ├── __init__.py
+    ├── text_processor.py    # 文字處理（jieba 斷詞、emoji 提取等）
+    ├── chat_processor.py    # ChatProcessor 類別（處理聊天訊息）
+    ├── word_discovery.py    # WordDiscoveryProcessor 類別（AI 詞彙發現）
+    └── dict_importer.py     # DictImporter 類別（字典匯入）
 ```
 
-**Task 1.3.1**: 建立 `config.py`
+#### 後端 API
+- `dashboard/backend/app/routers/etl_jobs.py` - ETL 任務管理 API
 
-```python
-import os
-from sqlalchemy import create_engine, text
-from typing import Any, Optional
+#### 前端
+- `dashboard/frontend/src/api/etl.js` - ETL API 客戶端
+- `dashboard/frontend/src/features/admin/ETLJobsManager.jsx` - ETL 管理頁面元件（含 Jobs/Settings 子標籤）
+- `dashboard/frontend/src/features/admin/ETLSettingsManager.jsx` - ETL 設定管理元件
 
-class ETLConfig:
-    """ETL 設定管理（從資料庫讀取，fallback 到環境變數）"""
-    
-    _engine = None
-    
-    @classmethod
-    def init_engine(cls, database_url: str):
-        cls._engine = create_engine(database_url)
-    
-    @classmethod
-    def get(cls, key: str, default: Any = None) -> Any:
-        """讀取設定（DB → ENV → Default）"""
-        # 1. 從資料庫讀取
-        if cls._engine:
-            with cls._engine.connect() as conn:
-                result = conn.execute(
-                    text("SELECT value, value_type FROM etl_settings WHERE key = :key"),
-                    {"key": key}
-                ).fetchone()
-                
-                if result:
-                    value, value_type = result
-                    return cls._convert_type(value, value_type)
-        
-        # 2. 從環境變數讀取
-        env_value = os.getenv(key)
-        if env_value is not None:
-            return env_value
-        
-        # 3. 使用預設值
-        return default
-    
-    @staticmethod
-    def _convert_type(value: str, value_type: str) -> Any:
-        """類型轉換"""
-        if value_type == 'boolean':
-            return value.lower() in ('true', '1', 'yes')
-        elif value_type == 'integer':
-            return int(value)
-        elif value_type == 'float':
-            return float(value)
-        return value
-```
+### 已修改的檔案
 
-**Task 1.3.2**: 提取核心邏輯到 `processors/`
-
-從 Airflow DAG 提取邏輯，移除 Airflow 依賴：
-
-```python
-# processors/chat_processor.py
-from app.etl.config import ETLConfig
-from sqlalchemy import create_engine
-import logging
-
-logger = logging.getLogger(__name__)
-
-def process_chat_messages():
-    """處理聊天訊息（原 process_chat_messages.py DAG 邏輯）"""
-    logger.info("🔄 Starting process_chat_messages...")
-    
-    # 從設定讀取
-    reset_flag = ETLConfig.get('PROCESS_CHAT_RESET', 'false')
-    start_time = ETLConfig.get('PROCESS_CHAT_START_TIME')
-    
-    # 原 DAG 邏輯...
-    # TODO: 從 airflow/dags/process_chat_messages.py 遷移
-    
-    logger.info("✅ process_chat_messages completed")
-```
-
-**注意事項**:
-- ⚠️ 移除所有 `from airflow import ...`
-- ⚠️ 移除 `Variable.get()` → 改用 `ETLConfig.get()`
-- ⚠️ 移除 `PostgresHook` → 改用 `sqlalchemy.create_engine`
-- ⚠️ 移除 `context['task_instance'].xcom_push()` → 改用函數回傳值或日誌
-
-**驗收標準**:
-- ✅ 所有邏輯可獨立執行（不依賴 Airflow）
-- ✅ 設定從 ETLConfig 讀取
-- ✅ 單元測試通過
-
----
-
-### Task 1.4: 建立 FastAPI ETL Jobs Router
-
-**檔案**: `dashboard/backend/app/routers/etl_jobs.py`
-
-**API 端點規格**:
-
-```python
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from app.etl.scheduler import get_scheduler
-from app.etl.tasks import TASK_REGISTRY
-from datetime import datetime
-from typing import List, Dict
-
-router = APIRouter(prefix="/api/admin/etl", tags=["etl-jobs"])
-
-# GET /api/admin/etl/jobs - 列出所有任務
-@router.get("/jobs")
-def list_jobs() -> Dict:
-    """列出所有排程任務與手動任務"""
-    scheduler = get_scheduler()
-    
-    scheduled_jobs = []
-    for job in scheduler.get_jobs():
-        scheduled_jobs.append({
-            'id': job.id,
-            'name': job.name,
-            'next_run': job.next_run_time.isoformat() if job.next_run_time else None,
-            'trigger': str(job.trigger),
-            'is_paused': job.next_run_time is None
-        })
-    
-    manual_jobs = [
-        {'id': 'import_dicts', 'name': 'Import Dictionaries', 'type': 'manual'}
-    ]
-    
-    return {
-        'scheduled': scheduled_jobs,
-        'manual': manual_jobs
-    }
-
-# POST /api/admin/etl/jobs/{job_name}/trigger - 手動觸發
-@router.post("/jobs/{job_name}/trigger")
-def trigger_job(job_name: str, background_tasks: BackgroundTasks):
-    """手動觸發任務（背景執行）"""
-    if job_name not in TASK_REGISTRY:
-        raise HTTPException(404, f"Task '{job_name}' not found")
-    
-    task_func = TASK_REGISTRY[job_name]
-    background_tasks.add_task(task_func)
-    
-    return {
-        'status': 'triggered',
-        'job': job_name,
-        'triggered_at': datetime.now().isoformat()
-    }
-
-# POST /api/admin/etl/jobs/{job_id}/pause - 暫停
-# POST /api/admin/etl/jobs/{job_id}/resume - 恢復
-# ... (其他端點)
-```
-
-**驗收標準**:
-- ✅ 所有端點正常運作
-- ✅ Swagger 文檔正確
-- ✅ 錯誤處理完善
-
----
-
-### Task 1.5: 建立 Dashboard ETL 管理頁面
-
-**檔案**: `dashboard/frontend/src/features/admin/ETLJobsPage.jsx`
-
-**UI 規格**:
-
-```
-┌─────────────────────────────────────────────────────┐
-│ ETL 任務管理                                         │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│ 📋 手動任務                                         │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ 匯入字典                                        │ │
-│ │ 將 text_analysis/ 字典檔匯入資料庫              │ │
-│ │                              [🔄 執行任務]      │ │
-│ └─────────────────────────────────────────────────┘ │
-│                                                     │
-│ ⏰ 排程任務                                         │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ 處理聊天訊息          下次執行: 14:00          │ │
-│ │ 每小時執行一次                                  │ │
-│ │        [⚡立即執行] [⏸️暫停] [查看日誌]         │ │
-│ ├─────────────────────────────────────────────────┤ │
-│ │ 發現新詞彙            下次執行: 15:00          │ │
-│ │ 每 3 小時執行一次                               │ │
-│ │        [⚡立即執行] [⏸️暫停] [查看日誌]         │ │
-│ └─────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────┘
-```
-
-**核心功能**:
-- 顯示所有排程任務與下次執行時間
-- 一鍵手動觸發任務
-- 暫停/恢復排程
-- 即時更新狀態（每 5 秒輪詢）
-
-**驗收標準**:
-- ✅ UI 美觀直觀
-- ✅ 所有按鈕功能正常
-- ✅ 即時顯示任務狀態
+- `dashboard/backend/requirements.txt` - 加入 apscheduler, jieba, google-generativeai
+- `dashboard/backend/main.py` - 整合 ETL scheduler 和新 router
+- `dashboard/frontend/src/features/admin/AdminPanel.jsx` - 加入 ETL Jobs 標籤頁
+- `docker-compose.yml` - 加入環境變數和 text_analysis 目錄掛載
 
 ---
 
@@ -400,15 +146,38 @@ def trigger_job(job_name: str, background_tasks: BackgroundTasks):
 - `GEMINI_API_KEY` 優先從 `.env` 讀取
 - Dashboard UI 顯示時需遮蔽
 
+### 新增的環境變數
+```bash
+# 在 .env 中加入（敏感資訊，不可在 Dashboard 設定）
+ENABLE_ETL_SCHEDULER=true  # 是否啟用 ETL 排程器
+GEMINI_API_KEY=xxx         # Gemini API 金鑰（用於 AI 詞彙發現）
+```
+
+### 設定優先級
+| 設定類型 | 優先級 | 說明 |
+|---------|--------|------|
+| 敏感設定 (API Key) | ENV → DB → Default | 優先從 `.env` 讀取 |
+| 一般設定 | DB → ENV → Default | 優先從 Dashboard UI 讀取 |
+
+### Dashboard 可調整的設定
+訪問 **Admin > ETL Jobs > Settings** 可以調整：
+- `PROCESS_CHAT_START_TIME` - 處理起始時間
+- `PROCESS_CHAT_BATCH_SIZE` - 批次大小
+- `PROCESS_CHAT_RESET` - 重置處理表
+- `DISCOVER_NEW_WORDS_ENABLED` - 啟用 AI 發現
+- `DISCOVER_NEW_WORDS_MIN_CONFIDENCE` - 最低信心分數
+- `DISCOVER_NEW_WORDS_BATCH_SIZE` - AI 分析批次大小
+- `TRUNCATE_*` - 字典匯入時的清空選項
+
 ---
 
 ## 📊 驗收檢查表
 
 ### Phase 1 完成標準
-- [ ] 所有 5 個任務完成
-- [ ] ETL 邏輯可獨立執行
-- [ ] Dashboard 可手動觸發任務
-- [ ] 設定可透過 UI 管理
+- [x] 所有 5 個任務完成
+- [x] ETL 邏輯可獨立執行
+- [x] Dashboard 可手動觸發任務
+- [x] 設定可透過 UI 管理
 
 ### Phase 2 完成標準
 - [ ] 新舊系統並行運行一週無誤
@@ -425,16 +194,19 @@ def trigger_job(job_name: str, background_tasks: BackgroundTasks):
 
 ## 🔗 相關檔案
 
-### 需要修改
-- `dashboard/backend/app/main.py` - 整合 scheduler
-- `docker-compose.yml` - 移除 Airflow 服務
-- `README.md` - 更新架構說明
+### 已修改
+- `dashboard/backend/app/main.py` - 整合 scheduler ✅
+- `dashboard/backend/requirements.txt` - 加入新依賴 ✅
+- `dashboard/frontend/src/features/admin/AdminPanel.jsx` - 加入 ETL 標籤 ✅
+- `docker-compose.yml` - 加入環境變數和掛載 ✅
 
-### 需要新增
-- `database/migrations/014_create_etl_settings.sql`
-- `dashboard/backend/app/etl/` - 整個目錄
-- `dashboard/frontend/src/features/admin/ETLJobsPage.jsx`
-- `dashboard/frontend/src/features/admin/ETLSettingsPage.jsx`
+### 已新增
+- `database/init/13_create_etl_settings.sql` ✅
+- `dashboard/backend/app/etl/` - 整個目錄 ✅
+- `dashboard/backend/app/routers/etl_jobs.py` ✅
+- `dashboard/frontend/src/features/admin/ETLJobsManager.jsx` ✅
+- `dashboard/frontend/src/features/admin/ETLSettingsManager.jsx` ✅
+- `dashboard/frontend/src/api/etl.js` ✅
 
 ### 需要保留（參考用）
 - `airflow/dags/` - 保留作為邏輯參考，標記為 deprecated
@@ -443,12 +215,12 @@ def trigger_job(job_name: str, background_tasks: BackgroundTasks):
 
 ## 📅 預估時程
 
-| Phase | 預估時間 | 備註 |
-|-------|---------|------|
-| Phase 1 | 3-4 天 | 建立新架構 |
-| Phase 2 | 2-3 天 | 測試與驗證 |
-| Phase 3 | 1 天 | 清理與文檔 |
-| **總計** | **6-8 天** | 不含緩衝時間 |
+| Phase | 預估時間 | 狀態 | 備註 |
+|-------|---------|------|------|
+| Phase 1 | 3-4 天 | ✅ 完成 | 建立新架構 |
+| Phase 2 | 2-3 天 | 🔄 進行中 | 測試與驗證 |
+| Phase 3 | 1 天 | ⏳ 待開始 | 清理與文檔 |
+| **總計** | **6-8 天** | | 不含緩衝時間 |
 
 ---
 
@@ -459,3 +231,55 @@ def trigger_job(job_name: str, background_tasks: BackgroundTasks):
 3. ✅ ETL 任務執行成功率 = 100%
 4. ✅ 所有功能與 Airflow 版本一致
 5. ✅ 可透過 Dashboard 管理所有 ETL 設定
+
+---
+
+## 🧪 測試指南
+
+### 測試步驟
+
+1. **重建後端容器**
+   ```bash
+   docker-compose up -d --build dashboard-backend
+   ```
+
+2. **檢查排程器狀態**
+   ```bash
+   curl http://localhost:8000/api/admin/etl/status
+   ```
+
+3. **查看所有任務**
+   ```bash
+   curl http://localhost:8000/api/admin/etl/jobs
+   ```
+
+4. **手動觸發任務**
+   ```bash
+   curl -X POST http://localhost:8000/api/admin/etl/jobs/import_dicts/trigger
+   curl -X POST http://localhost:8000/api/admin/etl/jobs/process_chat_messages/trigger
+   ```
+
+5. **查看執行記錄**
+   ```bash
+   curl http://localhost:8000/api/admin/etl/logs
+   ```
+
+6. **透過 Dashboard UI 測試**
+   - 訪問 http://localhost:3000/admin
+   - 點擊 "ETL Jobs" 標籤
+   - 測試手動觸發、暫停、恢復功能
+
+---
+
+## 📝 後續工作
+
+### Phase 2 待完成
+1. 執行完整的 ETL 任務測試
+2. 比對新舊系統的輸出結果
+3. 監控一週的並行運行
+
+### Phase 3 待完成
+1. 停用 Airflow DAGs
+2. 更新 docker-compose.yml 移除 Airflow 相關服務
+3. 更新 README.md 和 SETUP.md
+4. 移除或歸檔 airflow/ 目錄

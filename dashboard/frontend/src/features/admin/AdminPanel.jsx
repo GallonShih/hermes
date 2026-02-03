@@ -3,6 +3,7 @@ import {
     Cog6ToothIcon,
     CurrencyDollarIcon,
     MagnifyingGlassIcon,
+    ClockIcon,
 } from '@heroicons/react/24/outline';
 import Navigation from '../../components/common/Navigation';
 import ReplaceWordsReview from './ReplaceWordsReview';
@@ -10,6 +11,7 @@ import SpecialWordsReview from './SpecialWordsReview';
 import CurrencyRateManager from './CurrencyRateManager';
 import SettingsManager from './SettingsManager';
 import TextMining from './TextMining';
+import ETLJobsManager from './ETLJobsManager';
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState('replace');
@@ -76,6 +78,17 @@ const AdminPanel = () => {
                             <MagnifyingGlassIcon className="w-4 h-4" />
                             <span className="hidden sm:inline">Mining</span>
                         </button>
+                        <button
+                            className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'etl'
+                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }`}
+                            onClick={() => setActiveTab('etl')}
+                        >
+                            <ClockIcon className="w-4 h-4" />
+                            <span className="hidden sm:inline">ETL Jobs</span>
+                            <span className="sm:hidden">ETL</span>
+                        </button>
                     </div>
 
                     <div className="p-3 sm:p-6">
@@ -84,6 +97,7 @@ const AdminPanel = () => {
                         {activeTab === 'currency' && <CurrencyRateManager />}
                         {activeTab === 'settings' && <SettingsManager />}
                         {activeTab === 'textmining' && <TextMining />}
+                        {activeTab === 'etl' && <ETLJobsManager />}
                     </div>
                 </div>
             </div>
