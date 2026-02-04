@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies using root context convention
+# We assume the build context is the repository root
+COPY dashboard/backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application code
+COPY dashboard/backend .
+
+# Copy text_analysis dictionary from root (Critical for ETL)
+COPY text_analysis /app/text_analysis
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 8000 --workers ${APP_WORKERS:-1}"]
