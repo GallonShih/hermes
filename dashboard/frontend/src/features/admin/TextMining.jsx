@@ -8,8 +8,10 @@ import {
 import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
 import { formatLocalHour } from '../../utils/formatters';
 import API_BASE_URL from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const TextMining = () => {
+    const { getAuthHeaders } = useAuth();
     // Filter state
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -46,6 +48,7 @@ const TextMining = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...getAuthHeaders()
                 },
                 body: JSON.stringify({
                     start_time: isoStartTime,

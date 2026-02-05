@@ -6,9 +6,11 @@ import AddSpecialWordForm from './AddSpecialWordForm';
 import WordDetailModal from './WordDetailModal';
 import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SpecialWordsReview = () => {
     const toast = useToast();
+    const { getAuthHeaders } = useAuth();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -54,7 +56,10 @@ const SpecialWordsReview = () => {
             });
             if (wordFilter) params.append('word_filter', wordFilter);
 
-            const res = await fetch(`${API_BASE_URL}/api/admin/pending-special-words?${params}`);
+
+            const res = await fetch(`${API_BASE_URL}/api/admin/pending-special-words?${params}`, {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             setItems(data.items);
             setTotal(data.total);
@@ -181,7 +186,10 @@ const SpecialWordsReview = () => {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body
             });
 
@@ -191,7 +199,10 @@ const SpecialWordsReview = () => {
                     for (const singleId of ids) {
                         await fetch(`${API_BASE_URL}/api/admin/${action}-special-word/${singleId}`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getAuthHeaders()
+                            },
                             body: JSON.stringify({ reviewed_by: 'admin' })
                         });
                     }
@@ -222,7 +233,10 @@ const SpecialWordsReview = () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/validate-special-word`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({
                     word: item.word,
                     pending_id: item.id

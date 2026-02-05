@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import API_BASE_URL from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const SettingsManager = () => {
     const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -10,6 +11,8 @@ const SettingsManager = () => {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState(null);
 
+    const { getAuthHeaders } = useAuth();
+
     useEffect(() => {
         fetchSettings();
     }, []);
@@ -17,7 +20,9 @@ const SettingsManager = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${API_BASE_URL}/api/admin/settings/youtube_url`);
+            const response = await fetch(`${API_BASE_URL}/api/admin/settings/youtube_url`, {
+                headers: getAuthHeaders()
+            });
             const data = await response.json();
 
             if (data.value) {
@@ -50,7 +55,10 @@ const SettingsManager = () => {
             setSaving(true);
             const response = await fetch(`${API_BASE_URL}/api/admin/settings`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({
                     key: 'youtube_url',
                     value: youtubeUrl.trim(),

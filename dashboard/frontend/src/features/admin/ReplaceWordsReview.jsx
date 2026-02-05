@@ -6,9 +6,11 @@ import AddReplaceWordForm from './AddReplaceWordForm';
 import WordDetailModal from './WordDetailModal';
 import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ReplaceWordsReview = () => {
     const toast = useToast();
+    const { getAuthHeaders } = useAuth();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -59,7 +61,9 @@ const ReplaceWordsReview = () => {
             if (sourceWordFilter) params.append('source_word_filter', sourceWordFilter);
             if (targetWordFilter) params.append('target_word_filter', targetWordFilter);
 
-            const res = await fetch(`${API_BASE_URL}/api/admin/pending-replace-words?${params}`);
+            const res = await fetch(`${API_BASE_URL}/api/admin/pending-replace-words?${params}`, {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             setItems(data.items);
             setTotal(data.total);
@@ -165,7 +169,10 @@ const ReplaceWordsReview = () => {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body
             });
 
@@ -196,7 +203,10 @@ const ReplaceWordsReview = () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/validate-replace-word`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({
                     source_word: item.source_word,
                     target_word: item.target_word,

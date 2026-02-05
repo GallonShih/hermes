@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../../components/common/Toast';
 import API_BASE_URL from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CurrencyRateManager = () => {
     const toast = useToast();
+    const { getAuthHeaders } = useAuth();
     const [rates, setRates] = useState([]);
     const [unknownCurrencies, setUnknownCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,7 +26,9 @@ const CurrencyRateManager = () => {
 
     const fetchRates = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates`);
+            const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates`, {
+                headers: getAuthHeaders()
+            });
             const data = await response.json();
             setRates(data.rates || []);
             setError(null);
@@ -38,7 +42,9 @@ const CurrencyRateManager = () => {
 
     const fetchUnknownCurrencies = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates/unknown`);
+            const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates/unknown`, {
+                headers: getAuthHeaders()
+            });
             const data = await response.json();
             setUnknownCurrencies(data.unknown_currencies || []);
         } catch (err) {
@@ -58,7 +64,10 @@ const CurrencyRateManager = () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/currency-rates`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({
                     currency: currency.toUpperCase(),
                     rate_to_twd: parseFloat(rateToTwd),
