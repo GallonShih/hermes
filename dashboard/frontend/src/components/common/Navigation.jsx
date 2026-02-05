@@ -10,6 +10,8 @@ import {
     UserIcon,
     ShieldCheckIcon,
     ChevronDownIcon,
+    EyeIcon,
+    EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -20,6 +22,7 @@ const Navigation = () => {
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showRoleMenu, setShowRoleMenu] = useState(false);
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,6 +60,7 @@ const Navigation = () => {
             if (result.success) {
                 setShowLoginModal(false);
                 setPassword('');
+                setShowPassword(false);
                 setLoginError('');
                 setShowRoleMenu(false);
             } else {
@@ -93,11 +97,10 @@ const Navigation = () => {
                     <Link
                         key={path}
                         to={path}
-                        className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 font-semibold rounded-xl transition-all duration-200 cursor-pointer ${
-                            isActive(path)
-                                ? 'bg-white/90 text-indigo-700 shadow-lg hover:bg-white hover:shadow-xl backdrop-blur-sm border border-white/50'
-                                : 'glass-button text-gray-700'
-                        }`}
+                        className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 font-semibold rounded-xl transition-all duration-200 cursor-pointer ${isActive(path)
+                            ? 'bg-white/90 text-indigo-700 shadow-lg hover:bg-white hover:shadow-xl backdrop-blur-sm border border-white/50'
+                            : 'glass-button text-gray-700'
+                            }`}
                     >
                         <Icon className="w-5 h-5" />
                         <span className="hidden lg:inline">{label}</span>
@@ -108,9 +111,8 @@ const Navigation = () => {
                 <div className="ml-2 border-l border-gray-300/50 pl-3 relative" ref={roleMenuRef}>
                     <button
                         onClick={() => setShowRoleMenu(!showRoleMenu)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button transition-all duration-200 cursor-pointer ${
-                            isAdmin ? 'text-amber-700 hover:bg-amber-100/50' : 'text-gray-600 hover:bg-gray-100/50'
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl glass-button transition-all duration-200 cursor-pointer ${isAdmin ? 'text-amber-700 hover:bg-amber-100/50' : 'text-gray-600 hover:bg-gray-100/50'
+                            }`}
                     >
                         {isAdmin ? (
                             <ShieldCheckIcon className="w-5 h-5" />
@@ -238,11 +240,10 @@ const Navigation = () => {
                             key={path}
                             to={path}
                             onClick={() => setMobileMenuOpen(false)}
-                            className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                                isActive(path)
-                                    ? 'bg-indigo-100 text-indigo-700 font-semibold'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                            }`}
+                            className={`flex items-center gap-3 px-4 py-3 transition-colors ${isActive(path)
+                                ? 'bg-indigo-100 text-indigo-700 font-semibold'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
                         >
                             <Icon className="w-5 h-5" />
                             <span>{label}</span>
@@ -254,7 +255,7 @@ const Navigation = () => {
             {/* Login Modal */}
             {showLoginModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
-                    <div 
+                    <div
                         className="bg-white rounded-2xl p-6 w-80 shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -263,15 +264,28 @@ const Navigation = () => {
                             <h3 className="text-lg font-bold text-gray-800">切換為管理員</h3>
                         </div>
                         <p className="text-sm text-gray-600 mb-4">請輸入管理員密碼</p>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            placeholder="密碼"
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                            autoFocus
-                        />
+                        <div className="relative mb-2">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                placeholder="密碼"
+                                className="w-full border border-gray-300 rounded-lg pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                autoFocus
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                            >
+                                {showPassword ? (
+                                    <EyeSlashIcon className="w-5 h-5" />
+                                ) : (
+                                    <EyeIcon className="w-5 h-5" />
+                                )}
+                            </button>
+                        </div>
                         {loginError && (
                             <p className="text-red-500 text-sm mb-2">{loginError}</p>
                         )}
@@ -280,6 +294,7 @@ const Navigation = () => {
                                 onClick={() => {
                                     setShowLoginModal(false);
                                     setPassword('');
+                                    setShowPassword(false);
                                     setLoginError('');
                                 }}
                                 disabled={isSubmitting}
