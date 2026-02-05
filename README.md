@@ -100,7 +100,7 @@ docker-compose up -d
 open http://localhost:3000
 ```
 
-> 📖 **First-time setup?** See [docs/SETUP.md](docs/SETUP.md) for detailed configuration including authentication setup. ETL tasks are automatically managed via the Dashboard Admin panel.
+> 📖 **First-time setup?** See [docs/SETUP.md](docs/SETUP.md) for detailed configuration. **Important:** You must manually trigger the **Import Dictionary** task in the Admin Panel after deployment to enable proper text analysis.
 
 ---
 

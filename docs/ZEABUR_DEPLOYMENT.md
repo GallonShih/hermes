@@ -24,8 +24,16 @@
 ### 資料庫初始化 (首次部署必做)
 由於這是全新的資料庫，需要手動執行初始化 Script 來建立預設設定與 Prompt Template。
 在 Backend 部署成功後，使用 Zeabur 內建的 SQL Client 或 DBeaver 連線，依序執行以下檔案內容：
-1.  `database/init/13_create_etl_settings.sql` (ETL 設定)
+1.  `database/init/05a_create_etl_settings.sql` (ETL 設定)
 2.  `database/init/14_create_prompt_templates.sql` (AI 提示詞模板)
+
+### 3. 匯入字典 (重要)
+安裝完畢後，請務必執行以下步驟以匯入初始字典：
+1.  登入 Dashboard 後台 (Admin)。
+2.  進入 **ETL Jobs** (或 ETL Status) 頁面。
+3.  在 **Manual Tasks** 列表中找到 **Import Dictionary** (匯入字典)。
+4.  點擊 **Execute** (或 Run Now) 按鈕。
+5.  等待執行完成，以確保中文斷詞與替換詞庫生效。
 
 *(註：基本的 Table 結構會由 Backend 啟動時自動建立，不需手動跑 create_tables.sql)*
 
@@ -86,16 +94,7 @@
 
 ---
 
-## 5. Collector 部署 (選擇性)
-
-### 方案 A：部署在 Zeabur (容易被 YouTube 封鎖 IP)
-*   **Root Directory**: `collector`
-*   **Variables**:
-    *   `DATABASE_URL`: 同 Backend
-    *   `YOUTUBE_API_KEY`: 你的 Google YouTube Data API Key
-
-### 方案 B：本地運作 Hybrid 模式 (推薦)
-為了避免 Zeabur IP 被 YouTube 封鎖導致爬蟲失敗，建議在本地電腦或家用 NAS 執行 Collector。
+## 5. Collector 部署 (本地運作)
 
 1.  修改本地 `.env` 檔，將 `DATABASE_URL` 換成 Zeabur 的連線字串。
 2.  啟動 Collector：
@@ -104,7 +103,7 @@
     # 或
     python collector/main.py
     ```
-這樣 Collector 會使用你的乾淨 IP 爬取資料，並寫入雲端資料庫。
+這樣 Collector 會爬取資料，並寫入雲端資料庫。
 
 ---
 
@@ -117,7 +116,3 @@
 2.  **Frontend 出現 405 Method Not Allowed**
     *   原因: `VITE_API_BASE_URL` 沒填好，導致請求打回前端自己的 Nginx。
     *   解法: 確保變數有加 `https://` 且是指向 Backend 網域。
-
-3.  **Collector 錯誤: Unable to parse initial video data**
-    *   原因: IP 被 YouTube 封鎖 (Bot detection)。
-    *   解法: 採用方案 B (本地執行) 或更換 IP。

@@ -165,8 +165,8 @@ docker-compose ps
 
 1. Open Dashboard: http://localhost:3000/admin
 2. Go to **ETL Jobs** tab
-3. Find `import_dicts` task
-4. Click **Trigger** button
+3. Find **Import Dictionary** (匯入字典) task
+4. Click **Execute** button
 
 This imports base dictionaries from `text_analysis/` folder:
 - `special_words.json` → `special_words` table
