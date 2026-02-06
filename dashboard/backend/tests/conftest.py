@@ -11,7 +11,8 @@ from app.models import (
     ExclusionWordlist, WordTrendGroup,
     ETLSetting, ETLExecutionLog, PromptTemplate,
     SystemSetting, ReplacementWordlist,
-    ProcessedChatMessage, ProcessedChatCheckpoint
+    ProcessedChatMessage, ProcessedChatCheckpoint,
+    LiveStream
 )
 from app.core.database import get_db
 from app.core.security import create_access_token
