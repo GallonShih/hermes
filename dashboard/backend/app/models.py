@@ -54,6 +54,10 @@ class StreamStats(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     live_stream_id = Column(String(255), nullable=False)
     concurrent_viewers = Column(Integer)
+    view_count = Column(BigInteger)
+    like_count = Column(Integer)
+    favorite_count = Column(Integer)
+    comment_count = Column(Integer)
     actual_start_time = Column(DateTime(timezone=True))
     scheduled_start_time = Column(DateTime(timezone=True))
     active_live_chat_id = Column(String(255))
@@ -68,6 +72,7 @@ class StreamStats(Base):
 
         item = youtube_data['items'][0]
         live_details = item.get('liveStreamingDetails', {})
+        statistics = item.get('statistics', {})
 
         actual_start_time = None
         scheduled_start_time = None
@@ -85,6 +90,10 @@ class StreamStats(Base):
         return cls(
             live_stream_id=live_stream_id,
             concurrent_viewers=int(live_details.get('concurrentViewers', 0)) if live_details.get('concurrentViewers') else None,
+            view_count=int(statistics['viewCount']) if statistics.get('viewCount') else None,
+            like_count=int(statistics['likeCount']) if statistics.get('likeCount') else None,
+            favorite_count=int(statistics['favoriteCount']) if statistics.get('favoriteCount') else None,
+            comment_count=int(statistics['commentCount']) if statistics.get('commentCount') else None,
             actual_start_time=actual_start_time,
             scheduled_start_time=scheduled_start_time,
             active_live_chat_id=live_details.get('activeLiveChatId'),
@@ -93,7 +102,7 @@ class StreamStats(Base):
         )
 
     def __repr__(self):
-        return f"<StreamStats(id={self.id}, stream={self.live_stream_id}, viewers={self.concurrent_viewers})>"
+        return f"<StreamStats(id={self.id}, stream={self.live_stream_id}, viewers={self.concurrent_viewers}, views={self.view_count})>"
 
 class ReplaceWord(Base):
     __tablename__ = 'replace_words'
@@ -335,6 +344,32 @@ class WordAnalysisLog(Base):
 
     def __repr__(self):
         return f"<WordAnalysisLog(id={self.id}, run_id={self.run_id}, status={self.status})>"
+
+
+class LiveStream(Base):
+    """直播 metadata，當 admin 設定新 YouTube URL 時自動從 API 取得"""
+    __tablename__ = 'live_streams'
+
+    video_id = Column(String(20), primary_key=True)
+    title = Column(Text)
+    channel_id = Column(String(255))
+    channel_title = Column(String(255))
+    description = Column(Text)
+    thumbnail_url = Column(Text)
+    tags = Column(JSONB)
+    category_id = Column(String(10))
+    published_at = Column(DateTime(timezone=True))
+    scheduled_start_time = Column(DateTime(timezone=True))
+    actual_start_time = Column(DateTime(timezone=True))
+    live_broadcast_content = Column(String(20))
+    default_language = Column(String(10))
+    topic_categories = Column(JSONB)
+    fetched_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    def __repr__(self):
+        return f"<LiveStream(video_id={self.video_id}, title={self.title})>"
 
 
 class WordAnalysisCheckpoint(Base):

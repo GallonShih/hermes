@@ -22,30 +22,10 @@ class YouTubeAPIClient:
         self.base_url = "https://www.googleapis.com/youtube/v3"
 
     def get_live_stream_details(self, video_id):
-        """Get live streaming details for a video"""
+        """Get live streaming details and statistics for a video in a single API call"""
         url = f"{self.base_url}/videos"
         params = {
-            "part": "liveStreamingDetails",
-            "id": video_id
-        }
-        headers = {
-            "x-goog-api-key": self.api_key
-        }
-
-        try:
-            response = requests.get(url, params=params, headers=headers, timeout=30)
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"YouTube API request failed: {e}")
-            raise
-
-    def get_video_statistics(self, video_id):
-        """Get video statistics (views, likes, etc.)"""
-        url = f"{self.base_url}/videos"
-        params = {
-            "part": "statistics",
+            "part": "liveStreamingDetails,statistics",
             "id": video_id
         }
         headers = {
@@ -83,12 +63,13 @@ class StatsCollector:
             if stats:
                 # Extract values before session to avoid lazy loading issues
                 concurrent_viewers = stats.concurrent_viewers
+                view_count = stats.view_count
 
                 # Save to database
                 with get_db_session() as session:
                     session.add(stats)
 
-                logger.info(f"Saved stats for {video_id}: {concurrent_viewers} viewers")
+                logger.info(f"Saved stats for {video_id}: {concurrent_viewers} concurrent, {view_count} views")
                 return stats
             else:
                 logger.warning(f"Could not create stats object for video: {video_id}")

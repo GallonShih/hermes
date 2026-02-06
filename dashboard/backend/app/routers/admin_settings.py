@@ -6,7 +6,9 @@ import logging
 
 from app.core.database import get_db
 from app.core.dependencies import require_admin
-from app.models import SystemSetting
+from app.core.settings import get_video_id_from_url
+from app.models import SystemSetting, LiveStream
+from app.services.youtube_api import fetch_video_metadata, build_live_stream_from_api
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin-settings"])
@@ -93,14 +95,34 @@ def upsert_setting(
             message = f"Setting '{key}' created successfully"
         
         db.commit()
-        
+
+        # When youtube_url is saved, fetch video metadata from YouTube API
+        if key == "youtube_url" and value:
+            try:
+                video_id = get_video_id_from_url(value)
+                if video_id:
+                    item = fetch_video_metadata(video_id)
+                    if item:
+                        live_stream = build_live_stream_from_api(video_id, item)
+                        # Upsert: merge will update if exists, insert if not
+                        db.merge(live_stream)
+                        db.commit()
+                        logger.info(f"Fetched and saved metadata for video {video_id}")
+                    else:
+                        logger.warning(f"Could not fetch metadata for video {video_id}")
+                else:
+                    logger.warning(f"Could not extract video ID from URL: {value}")
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"Failed to fetch video metadata (non-blocking): {e}")
+
         return {
             "success": True,
             "message": message,
             "key": key,
             "value": value
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

@@ -14,6 +14,7 @@ import MessageList from '../messages/MessageList';
 import WordCloudPanel from '../wordcloud/WordCloudPanel';
 import MoneyStats from './MoneyStats';
 import EmojiStatsPanel from './EmojiStatsPanel';
+import StreamInfoBar from './StreamInfoBar';
 
 registerChartComponents();
 
@@ -316,6 +317,9 @@ function Dashboard() {
                     <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">YouTube Live Chat Analyzer</h1>
                     <Navigation />
                 </div>
+
+                {/* Stream Info Bar */}
+                <StreamInfoBar />
 
                 {/* Time Filter Section */}
                 <div className="glass-card p-3 sm:p-4 rounded-2xl mb-4 sm:mb-6">
