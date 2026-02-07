@@ -36,10 +36,13 @@ jobs:
           filters: |
             backend:
               - 'dashboard/backend/**'
+              - '.github/workflows/**'
             frontend:
               - 'dashboard/frontend/**'
+              - '.github/workflows/**'
             worker:
               - 'collector/**'
+              - '.github/workflows/**'
 
   test-backend:
     name: Backend Unit Tests
