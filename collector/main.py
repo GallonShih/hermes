@@ -83,13 +83,16 @@ class CollectorWorker:
         self.stats_thread.daemon = True
         self.stats_thread.start()
 
-        # Start URL monitoring thread
-        self.url_monitor_thread = threading.Thread(
-            target=self._monitor_url_changes,
-            name="URLMonitor"
-        )
-        self.url_monitor_thread.daemon = True
-        self.url_monitor_thread.start()
+        # Start URL monitoring thread (only if not using env-only mode)
+        if not Config.USE_ENV_YOUTUBE_URL:
+            self.url_monitor_thread = threading.Thread(
+                target=self._monitor_url_changes,
+                name="URLMonitor"
+            )
+            self.url_monitor_thread.daemon = True
+            self.url_monitor_thread.start()
+        else:
+            logger.info("URL monitoring disabled (USE_ENV_YOUTUBE_URL=true)")
 
         # Start chat watchdog thread
         self.chat_watchdog_thread = threading.Thread(
@@ -134,6 +137,10 @@ class CollectorWorker:
         if self.stats_thread and self.stats_thread.is_alive():
             logger.info("Waiting for stats polling to stop...")
             self.stats_thread.join(timeout=10)
+
+        if self.url_monitor_thread and self.url_monitor_thread.is_alive():
+            logger.info("Waiting for URL monitor to stop...")
+            self.url_monitor_thread.join(timeout=10)
 
         # Close database connections
         db_manager = get_db_manager()
@@ -259,6 +266,11 @@ class CollectorWorker:
 
     def _monitor_url_changes(self):
         """Monitor for YouTube URL changes in database"""
+        # Skip URL monitoring if using environment variable only
+        if Config.USE_ENV_YOUTUBE_URL:
+            logger.info("URL monitor disabled (USE_ENV_YOUTUBE_URL=true)")
+            return
+        
         logger.info(f"URL monitor started (checking every {Config.URL_CHECK_INTERVAL}s)")
         
         while self.is_running:

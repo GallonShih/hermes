@@ -16,6 +16,7 @@ class Config:
     # YouTube API
     YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
     YOUTUBE_URL = os.getenv('YOUTUBE_URL')
+    USE_ENV_YOUTUBE_URL = os.getenv('USE_ENV_YOUTUBE_URL', 'false').lower() == 'true'
 
     # Worker settings
     POLL_INTERVAL = int(os.getenv('POLL_INTERVAL', 60))  # seconds
@@ -36,6 +37,10 @@ class Config:
     @classmethod
     def get_youtube_url_from_db(cls):
         """Fetch YouTube URL from database, fallback to env if not set"""
+        # If USE_ENV_YOUTUBE_URL is true, skip database and use env variable only
+        if cls.USE_ENV_YOUTUBE_URL:
+            return cls.YOUTUBE_URL
+        
         try:
             from database import get_db_session
             from sqlalchemy import text
@@ -80,12 +85,20 @@ class Config:
     def print_config(cls):
         """Print current configuration (excluding sensitive data)"""
         youtube_url = cls.get_youtube_url_from_db()
-        url_source = "DB" if youtube_url != cls.YOUTUBE_URL else "ENV"
+        
+        # Determine URL source
+        if cls.USE_ENV_YOUTUBE_URL:
+            url_source = "ENV (forced)"
+        elif youtube_url != cls.YOUTUBE_URL:
+            url_source = "DB"
+        else:
+            url_source = "ENV"
         
         print("=== Collector Worker Configuration ===")
         print(f"DATABASE_URL: {'***' if cls.DATABASE_URL else 'NOT SET'}")
         print(f"YOUTUBE_API_KEY: {'***' if cls.YOUTUBE_API_KEY else 'NOT SET'}")
         print(f"YOUTUBE_URL: {youtube_url} (from {url_source})")
+        print(f"USE_ENV_YOUTUBE_URL: {cls.USE_ENV_YOUTUBE_URL}")
         print(f"POLL_INTERVAL: {cls.POLL_INTERVAL}")
         print(f"URL_CHECK_INTERVAL: {cls.URL_CHECK_INTERVAL}")
         print(f"ENABLE_BACKFILL: {cls.ENABLE_BACKFILL}")
