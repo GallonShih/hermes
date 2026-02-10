@@ -177,18 +177,14 @@ class CollectorWorker:
             logger.error(f"Failed to update live_broadcast_content for {video_id}: {e}")
 
     def _run_chat_collection(self):
-        """Run chat collection with retry logic"""
+        """Run chat collection with retry logic
+        
+        Note: Will attempt to collect chat regardless of stream status (upcoming/live).
+        This allows collecting waiting room chat if available before stream starts.
+        If chat is not available, the retry logic will handle reconnection attempts.
+        """
         while self.is_running:
             self._url_changed.clear()
-
-            # Wait if stream is upcoming (not yet live)
-            if self._stream_upcoming.is_set():
-                logger.info("Stream is upcoming, waiting for it to go live...")
-                while self._stream_upcoming.is_set() and self.is_running and not self._url_changed.is_set():
-                    time.sleep(5)
-                if not self.is_running or self._url_changed.is_set():
-                    continue
-                logger.info("Stream is now live, starting chat collection")
 
             try:
                 logger.info("Starting chat collection...")
@@ -216,10 +212,6 @@ class CollectorWorker:
                     # Check if stream ended — do grace period then sleep
                     if self._stream_ended.is_set():
                         self._chat_stream_ended_cleanup()
-                        continue
-
-                    # Check if stream is upcoming — go back to wait loop
-                    if self._stream_upcoming.is_set():
                         continue
 
                     logger.info("Restarting chat collection in 60 seconds...")
@@ -302,8 +294,8 @@ class CollectorWorker:
                 if not self.is_running:
                     break
                 
-                # Skip monitoring if stream ended or upcoming (chat is intentionally paused)
-                if self._stream_ended.is_set() or self._stream_upcoming.is_set():
+                # Skip monitoring if stream ended (chat is intentionally stopped waiting for URL change)
+                if self._stream_ended.is_set():
                     continue
 
                 # Check if chat collector has activity
