@@ -116,6 +116,50 @@ def test_get_active_streams_not_live(monitor):
     assert result == []
 
 
+def test_get_active_streams_with_upcoming(monitor):
+    """Test _get_active_streams includes streams in 'upcoming' state."""
+    mock_engine = MagicMock()
+    mock_conn = MagicMock()
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+    
+    # First call: system_settings query
+    mock_conn.execute.return_value.fetchone.return_value = ('https://www.youtube.com/watch?v=abc12345678',)
+    # Second call: live_streams query - upcoming stream
+    mock_conn.execute.return_value.fetchall.return_value = [
+        ('abc12345678', 'Upcoming Stream', 'upcoming')
+    ]
+    monitor._engine = mock_engine
+    
+    result = monitor._get_active_streams()
+    
+    assert len(result) == 1
+    assert result[0]['video_id'] == 'abc12345678'
+    assert result[0]['title'] == 'Upcoming Stream'
+    assert result[0]['live_broadcast_content'] == 'upcoming'
+
+
+def test_get_active_streams_with_live(monitor):
+    """Test _get_active_streams includes streams in 'live' state."""
+    mock_engine = MagicMock()
+    mock_conn = MagicMock()
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
+    
+    # First call: system_settings query
+    mock_conn.execute.return_value.fetchone.return_value = ('https://www.youtube.com/watch?v=xyz87654321',)
+    # Second call: live_streams query - live stream
+    mock_conn.execute.return_value.fetchall.return_value = [
+        ('xyz87654321', 'Live Stream', 'live')
+    ]
+    monitor._engine = mock_engine
+    
+    result = monitor._get_active_streams()
+    
+    assert len(result) == 1
+    assert result[0]['video_id'] == 'xyz87654321'
+    assert result[0]['title'] == 'Live Stream'
+    assert result[0]['live_broadcast_content'] == 'live'
+
+
 # ============ Video ID Extraction ============
 
 def test_extract_video_id_standard_url():

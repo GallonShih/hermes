@@ -166,14 +166,14 @@ class CollectorMonitor:
             logger.warning(f"Could not extract video_id from URL: {result[0]}")
             return []
 
-        # Check if this stream is live
+        # Check if this stream is live or upcoming (collector may be collecting waiting room chat)
         with engine.connect() as conn:
             rows = conn.execute(
                 text("""
                     SELECT video_id, title, live_broadcast_content
                     FROM live_streams
                     WHERE video_id = :video_id
-                      AND live_broadcast_content = 'live'
+                      AND live_broadcast_content IN ('live', 'upcoming')
                 """),
                 {"video_id": video_id}
             ).fetchall()
