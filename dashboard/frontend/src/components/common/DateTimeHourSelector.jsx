@@ -43,7 +43,7 @@ const DateTimeHourSelector = ({ label, value, onChange, max }) => {
     return (
         <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
                 <input
                     type="date"
                     className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -52,7 +52,7 @@ const DateTimeHourSelector = ({ label, value, onChange, max }) => {
                     max={maxDate}
                 />
                 <select
-                    className="w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full sm:w-24 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={hourPart}
                     onChange={handleHourChange}
                     disabled={!datePart}

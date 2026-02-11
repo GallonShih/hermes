@@ -138,7 +138,7 @@ const PromptTemplatesManager = () => {
             )}
 
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                         <SparklesIcon className="w-6 h-6 text-purple-500" />
@@ -150,7 +150,7 @@ const PromptTemplatesManager = () => {
                 </div>
                 <button
                     onClick={handleCreate}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                     <PlusIcon className="w-5 h-5" />
                     建立新範本
@@ -167,7 +167,7 @@ const PromptTemplatesManager = () => {
                             : 'border-gray-200 hover:shadow-sm'
                             }`}
                     >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                     <h3 className="text-lg font-semibold text-gray-900">
@@ -189,7 +189,7 @@ const PromptTemplatesManager = () => {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className="flex items-center gap-2 sm:ml-4">
                                 {!template.is_active && (
                                     <button
                                         onClick={() => handleActivate(template.id)}

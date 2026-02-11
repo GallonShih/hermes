@@ -200,7 +200,7 @@ const SettingsManager = () => {
                         )}
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="text-sm text-gray-500">
                             {lastUpdated && (
                                 <span>
@@ -243,13 +243,13 @@ const SettingsManager = () => {
                         max={formatLocalHour(new Date())}
                     />
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="text-sm text-gray-500">
                             {savedDefaultStartTime && (
                                 <span>目前設定: {savedDefaultStartTime.replace('T', ' ')}</span>
                             )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                             {savedDefaultStartTime && (
                                 <button
                                     onClick={handleClearPeriod}

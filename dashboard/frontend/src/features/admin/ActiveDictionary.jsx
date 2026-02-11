@@ -134,7 +134,7 @@ const ActiveDictionary = () => {
     return (
         <div>
             {/* Sub-view toggle */}
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
                 <div className="flex rounded-lg overflow-hidden border border-gray-200">
                     <button
                         className={`px-4 py-2 text-sm font-medium cursor-pointer transition-colors ${subView === 'replace'
@@ -161,7 +161,7 @@ const ActiveDictionary = () => {
             </div>
 
             {/* Search */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
                 <input
                     type="text"
                     value={localSearch}
@@ -172,7 +172,7 @@ const ActiveDictionary = () => {
                 />
                 <button
                     onClick={applySearch}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 cursor-pointer transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 cursor-pointer transition-colors sm:w-auto"
                 >
                     Search
                 </button>

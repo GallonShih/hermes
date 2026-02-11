@@ -303,39 +303,39 @@ const SpecialWordsReview = () => {
                 )}
             </div>
 
-            <div className="flex justify-between items-center mb-4">
-                <div className="space-x-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div className="flex flex-wrap gap-2">
                     <button
-                        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 cursor-pointer"
+                        className="bg-purple-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded hover:bg-purple-700 cursor-pointer"
                         onClick={() => setShowAddForm(!showAddForm)}
                     >
-                        {showAddForm ? '關閉表單' : <><PlusIcon className="w-4 h-4 inline mr-1" />新增詞彙</>}
+                        {showAddForm ? '關閉' : <><PlusIcon className="w-4 h-4 inline mr-1" />新增</>}
                     </button>
                     <button
-                        className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-green-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('approve')}
                     >
-                        {isProcessing ? 'Processing...' : `Approve Selected (${selectedIds.length})`}
+                        {isProcessing ? '...' : <><span className="hidden sm:inline">Approve </span>({selectedIds.length})</>}
                     </button>
                     <button
-                        className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={selectedIds.length === 0 || isProcessing}
                         onClick={() => confirmAction('reject')}
                     >
-                        {isProcessing ? 'Processing...' : `Reject Selected (${selectedIds.length})`}
+                        {isProcessing ? '...' : <><span className="hidden sm:inline">Reject </span>({selectedIds.length})</>}
                     </button>
                     <button
-                        className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="bg-red-800 text-white px-3 py-1.5 sm:px-4 sm:py-2 text-sm rounded hover:bg-red-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         onClick={() => confirmAction('clear')}
                         disabled={isProcessing}
                     >
-                        <TrashIcon className="w-4 h-4 inline mr-1" />
-                        Clear All
+                        <TrashIcon className="w-4 h-4 inline" />
+                        <span className="hidden sm:inline ml-1">Clear All</span>
                     </button>
                 </div>
-                <div>
-                    <span className="mr-2">Total: {total}</span>
+                <div className="text-sm text-gray-600">
+                    Total: {total}
                 </div>
             </div>
 
@@ -423,21 +423,22 @@ const SpecialWordsReview = () => {
                 </table>
             </div>
 
-            <div className="mt-4 flex justify-between items-center">
+            <div className="mt-4 flex justify-between items-center gap-2">
                 <button
                     disabled={page === 0}
                     onClick={() => setPage(p => p - 1)}
-                    className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-100"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm border rounded disabled:opacity-50 hover:bg-gray-100"
                 >
-                    Previous
+                    <span className="hidden sm:inline">Previous</span>
+                    <span className="sm:hidden">Prev</span>
                 </button>
-                <span className="text-gray-600">
-                    Page {page + 1} of {Math.ceil(total / limit) || 1}
+                <span className="text-xs sm:text-sm text-gray-600">
+                    {page + 1} / {Math.ceil(total / limit) || 1}
                 </span>
                 <button
                     disabled={(page + 1) * limit >= total}
                     onClick={() => setPage(p => p + 1)}
-                    className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-100"
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm border rounded disabled:opacity-50 hover:bg-gray-100"
                 >
                     Next
                 </button>
