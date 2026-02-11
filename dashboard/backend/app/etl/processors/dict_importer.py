@@ -18,7 +18,7 @@ from app.etl.config import ETLConfig
 logger = logging.getLogger(__name__)
 
 # 字典檔案預設路徑
-DEFAULT_TEXT_ANALYSIS_DIR = Path(os.getenv('TEXT_ANALYSIS_DIR', '/app/text_analysis'))
+DEFAULT_TEXT_ANALYSIS_DIR = Path(os.getenv('TEXT_ANALYSIS_DIR', '/app/text_analysis').strip())
 
 
 class DictImporter:
@@ -174,8 +174,7 @@ class DictImporter:
         json_file = self.text_analysis_dir / 'meaningless_words.json'
 
         if not json_file.exists():
-            logger.warning(f"File not found: {json_file}")
-            return {'processed': 0, 'total': 0, 'error': 'file_not_found'}
+            raise FileNotFoundError(f"Meaningless words file not found: {json_file}")
 
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -213,8 +212,7 @@ class DictImporter:
         json_file = self.text_analysis_dir / 'replace_words.json'
 
         if not json_file.exists():
-            logger.warning(f"File not found: {json_file}")
-            return {'processed': 0, 'total': 0, 'error': 'file_not_found'}
+            raise FileNotFoundError(f"Replace words file not found: {json_file}")
 
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -254,8 +252,7 @@ class DictImporter:
         json_file = self.text_analysis_dir / 'special_words.json'
 
         if not json_file.exists():
-            logger.warning(f"File not found: {json_file}")
-            return {'processed': 0, 'total': 0, 'error': 'file_not_found'}
+            raise FileNotFoundError(f"Special words file not found: {json_file}")
 
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)

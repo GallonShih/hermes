@@ -327,8 +327,9 @@ def run_import_dicts(etl_log_id: Optional[int] = None) -> Dict[str, Any]:
         if etl_log_id:
             update_etl_log_status(
                 etl_log_id, 
-                'completed', 
-                records_processed=result.get('total_processed', 0)
+                result.get('status', 'completed'), 
+                records_processed=result.get('total_processed', 0),
+                error_message=result.get('error')
             )
 
         return result
