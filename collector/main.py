@@ -296,14 +296,24 @@ class CollectorWorker:
                 
                 # Skip monitoring if stream ended (chat is intentionally stopped waiting for URL change)
                 if self._stream_ended.is_set():
+                    logger.debug("Watchdog: Skipping check (stream ended)")
                     continue
 
                 # Check if chat collector has activity
                 if self.chat_collector and self.chat_collector.last_activity_time:
-                    idle_time = time.time() - self.chat_collector.last_activity_time
+                    current_time = time.time()
+                    idle_time = current_time - self.chat_collector.last_activity_time
+                    
+                    # Convert timestamps to readable format
+                    from datetime import datetime
+                    last_activity_dt = datetime.fromtimestamp(self.chat_collector.last_activity_time)
+                    current_dt = datetime.fromtimestamp(current_time)
+                    
+                    # Log activity status on every check
+                    logger.info(f"Watchdog: idle_time={idle_time:.0f}s, last_activity={last_activity_dt.strftime('%H:%M:%S')}, current={current_dt.strftime('%H:%M:%S')}")
                     
                     if idle_time > Config.CHAT_WATCHDOG_TIMEOUT:
-                        logger.warning(f"Chat collector appears hung (no activity for {idle_time:.0f}s)")
+                        logger.warning(f"Chat collector appears hung (no activity for {idle_time:.0f}s, threshold: {Config.CHAT_WATCHDOG_TIMEOUT}s)")
                         logger.info("Restarting chat collector...")
                         
                         # Stop current collector
@@ -317,6 +327,8 @@ class CollectorWorker:
                             self.chat_collector = ChatCollector(self.video_id, register_signals=False)
                         
                         logger.info("Chat collector restarted by watchdog")
+                else:
+                    logger.debug("Watchdog: chat_collector or last_activity_time not initialized yet")
                         
             except Exception as e:
                 logger.error(f"Watchdog error: {e}")

@@ -101,7 +101,14 @@ class ChatCollector:
             
             self._buffer.clear()
             self._last_flush = time.time()
-            logger.info(f"Buffer flushed: {saved_count} processed, {error_count} errors")
+            
+            # Show heartbeat update info
+            from datetime import datetime
+            if self.last_activity_time:
+                last_activity_str = datetime.fromtimestamp(self.last_activity_time).strftime('%H:%M:%S')
+                logger.info(f"Buffer flushed: {saved_count} saved, {error_count} errors (last_activity={last_activity_str})")
+            else:
+                logger.info(f"Buffer flushed: {saved_count} saved, {error_count} errors")
             
         except Exception as e:
             logger.error(f"Failed to flush buffer: {e}")
@@ -152,9 +159,6 @@ class ChatCollector:
             chat = self.chat_downloader.get_chat(url, message_groups=['all'])
 
             for message_data in chat:
-                # Update heartbeat on each iteration (even if message save fails)
-                self.last_activity_time = time.time()
-                
                 if not self.is_running:
                     logger.info("Chat collection stopped")
                     break
@@ -178,12 +182,15 @@ class ChatCollector:
         chat_message = ChatMessage.from_chat_data(message_data, self.live_stream_id)
         
         if chat_message is None:
-            # Skip messages that cannot be saved (e.g., ban_user, remove_chat_item)
+            # Skip messages that cannot be saved (e.g., ban_user, remove_chat_item, system messages)
             logger.debug(f"Skipping unsupported message type: {message_data.get('action_type')}")
             return
         
         # Add raw data to buffer (we'll create ChatMessage objects during flush)
         self._buffer.append(message_data)
+        
+        # Update heartbeat only when actual chat messages are buffered
+        self.last_activity_time = time.time()
         
         logger.debug(f"Buffered message: {message_data.get('message_id')} "
                      f"(buffer: {len(self._buffer)}/{self._buffer_size})")
