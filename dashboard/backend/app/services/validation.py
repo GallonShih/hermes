@@ -47,14 +47,11 @@ def validate_replace_word(
             "message": f"source_word '{source_word}' 已存在，原 target_word 為 '{existing_source.target_word}'，將被更新為 '{target_word}'"
         })
     
-    target_special = db.query(SpecialWord).filter(
-        SpecialWord.word == target_word
-    ).first()
-    if target_special:
-        warnings.append({
-            "type": "target_in_special_words",
-            "message": f"target_word '{target_word}' 存在於 special_words 中，請確認是否正確"
-        })
+    
+    # 移除：Target 是 Special Word 的警告
+    # 這是正常的設計（詞頻正規化），不需要警告
+    # Word Discovery 會自動將 Replace Target 加入 Special Words
+    
     
     query = db.query(PendingReplaceWord).filter(
         PendingReplaceWord.source_word == source_word,
@@ -85,15 +82,11 @@ def validate_special_word(
     conflicts = []
     warnings = []
     
-    target = db.query(ReplaceWord).filter(
-        ReplaceWord.target_word == word
-    ).first()
-    if target:
-        conflicts.append({
-            "type": "word_in_target_words",
-            "message": f"word '{word}' 已是替換詞的 target_word (來自 '{target.source_word}')，不能同時為 special_word"
-        })
+    # 移除：Target 可以是 Special Word（這是設計的核心邏輯）
+    # Word Discovery 會自動將 Replace Word 的 Target 加入 Pending Special Words
+    # 原因：Replace 是為了正規化詞彙，Target 是正規化後的標準詞，應該作為 Special Word 保留
     
+    # ✅ 保留：檢查是否為 source_word（這是真正的衝突）
     source = db.query(ReplaceWord).filter(
         ReplaceWord.source_word == word
     ).first()
@@ -107,7 +100,7 @@ def validate_special_word(
         SpecialWord.word == word
     ).first()
     if existing:
-        warnings.append({
+        warnings.append({  # 保持為 warning
             "type": "word_already_exists",
             "message": f"word '{word}' 已存在於 special_words 中"
         })

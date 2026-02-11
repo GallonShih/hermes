@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
-const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
+const ValidationResultModal = ({ isOpen, isValid, conflicts, warnings = [], onClose }) => {
     const closeButtonRef = useRef(null);
 
     // Focus management and keyboard handling
@@ -21,6 +21,8 @@ const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
     }, [isOpen, onClose]);
 
     if (!isOpen) return null;
+
+    const hasWarnings = warnings && warnings.length > 0;
 
     return ReactDOM.createPortal(
         <div
@@ -79,7 +81,44 @@ const ValidationResultModal = ({ isOpen, isValid, conflicts, onClose }) => {
                     {/* Content */}
                     <div className="mb-6">
                         {isValid ? (
-                            <p className="text-gray-700">未發現衝突，此詞彙可以安全批准。</p>
+                            <div>
+                                <p className="text-gray-700 mb-3">未發現衝突，此詞彙可以安全批准。</p>
+
+                                {/* Warnings Section */}
+                                {hasWarnings && (
+                                    <div className="mt-4">
+                                        <p className="text-gray-700 mb-2 font-semibold flex items-center">
+                                            <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            但有以下提示：
+                                        </p>
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 max-h-64 overflow-y-auto" role="alert">
+                                            <ul className="space-y-2" aria-label="警告清單">
+                                                {warnings.map((warning, index) => (
+                                                    <li key={index} className="text-sm flex items-start">
+                                                        <span className="text-yellow-600 mr-2 mt-0.5">⚠️</span>
+                                                        <div className="flex-1">
+                                                            <span className="font-semibold text-yellow-800">
+                                                                {warning.type}:
+                                                            </span>
+                                                            <span className="text-gray-700 ml-2">
+                                                                {warning.message}
+                                                            </span>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-2 italic flex items-center">
+                                            <svg className="w-4 h-4 text-blue-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                            </svg>
+                                            這些警告不會阻止批准，但請確認是否符合預期
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <div>
                                 <p className="text-gray-700 mb-3 font-semibold">發現以下衝突：</p>

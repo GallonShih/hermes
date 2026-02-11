@@ -739,7 +739,8 @@ def add_replace_word(
         if existing:
             return {
                 "success": False,
-                "message": "Replace word already exists"
+                "message": "Replace word already exists",
+                "warnings": validation_result['warnings']  # 包含警告信息
             }
         
         new_word = ReplaceWord(
@@ -788,7 +789,8 @@ def add_special_word(
         if existing:
             return {
                 "success": False,
-                "message": "Special word already exists"
+                "message": "Special word already exists",
+                "warnings": validation_result['warnings']  # 包含警告信息
             }
         
         new_word = SpecialWord(

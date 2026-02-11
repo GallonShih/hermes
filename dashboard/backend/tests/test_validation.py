@@ -43,13 +43,15 @@ class TestValidateReplaceWord:
         assert result["valid"] == True
         assert any(w["type"] == "source_already_exists" for w in result["warnings"])
 
-    def test_target_in_special_words_warning(self, db):
+    def test_target_in_special_words_no_warning(self, db):
+        """Target being a special word is normal design (no warning)"""
         db.add(SpecialWord(word="目標詞"))
         db.commit()
         
         result = validate_replace_word(db, "錯字", "目標詞")
         assert result["valid"] == True
-        assert any(w["type"] == "target_in_special_words" for w in result["warnings"])
+        # 不應該有警告 - Target 是 Special Word 是正常的設計
+        assert result["warnings"] == []
 
     def test_duplicate_pending_warning(self, db):
         db.add(PendingReplaceWord(
@@ -68,12 +70,15 @@ class TestValidateSpecialWord:
         assert result["conflicts"] == []
 
     def test_word_in_target_words(self, db):
+        """Target words CAN be special words - this is the design intent"""
         db.add(ReplaceWord(source_word="錯字", target_word="正字"))
         db.commit()
         
         result = validate_special_word(db, "正字")
-        assert result["valid"] == False
-        assert any(c["type"] == "word_in_target_words" for c in result["conflicts"])
+        # Target 可以是 Special Word（Word Discovery 會自動加入）
+        assert result["valid"] == True
+        assert result["conflicts"] == []
+
 
     def test_word_in_source_words(self, db):
         db.add(ReplaceWord(source_word="錯字", target_word="正字"))
@@ -84,10 +89,12 @@ class TestValidateSpecialWord:
         assert any(c["type"] == "word_in_source_words" for c in result["conflicts"])
 
     def test_word_already_exists_warning(self, db):
+        """Words already in special_words can be approved (idempotent)"""
         db.add(SpecialWord(word="現有詞"))
         db.commit()
         
         result = validate_special_word(db, "現有詞")
+        # 允許批准（冪等設計），但有警告
         assert result["valid"] == True
         assert any(w["type"] == "word_already_exists" for w in result["warnings"])
 

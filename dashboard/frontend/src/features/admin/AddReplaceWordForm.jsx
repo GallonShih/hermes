@@ -11,7 +11,8 @@ const AddReplaceWordForm = ({ onSuccess, onCancel }) => {
     const [validationResult, setValidationResult] = useState({
         isOpen: false,
         isValid: false,
-        conflicts: []
+        conflicts: [],
+        warnings: []
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -20,7 +21,8 @@ const AddReplaceWordForm = ({ onSuccess, onCancel }) => {
             setValidationResult({
                 isOpen: true,
                 isValid: false,
-                conflicts: [{ type: 'error', message: 'Source Word 和 Target Word 為必填欄位' }]
+                conflicts: [{ type: 'error', message: 'Source Word 和 Target Word 為必填欄位' }],
+                warnings: []
             });
             return;
         }
@@ -42,7 +44,8 @@ const AddReplaceWordForm = ({ onSuccess, onCancel }) => {
             setValidationResult({
                 isOpen: true,
                 isValid: result.valid,
-                conflicts: result.conflicts || []
+                conflicts: result.conflicts || [],
+                warnings: result.warnings || []
             });
 
             setIsValidated(result.valid);
@@ -50,7 +53,8 @@ const AddReplaceWordForm = ({ onSuccess, onCancel }) => {
             setValidationResult({
                 isOpen: true,
                 isValid: false,
-                conflicts: [{ type: 'error', message: '驗證請求失敗，請稍後再試' }]
+                conflicts: [{ type: 'error', message: '驗證請求失敗，請稍後再試' }],
+                warnings: []
             });
             setIsValidated(false);
         }
@@ -161,6 +165,7 @@ const AddReplaceWordForm = ({ onSuccess, onCancel }) => {
                 isOpen={validationResult.isOpen}
                 isValid={validationResult.isValid}
                 conflicts={validationResult.conflicts}
+                warnings={validationResult.warnings}
                 onClose={() => setValidationResult(prev => ({ ...prev, isOpen: false }))}
             />
         </div>

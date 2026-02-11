@@ -34,7 +34,8 @@ const ReplaceWordsReview = () => {
     const [validationResult, setValidationResult] = useState({
         isOpen: false,
         isValid: false,
-        conflicts: []
+        conflicts: [],
+        warnings: []
     });
     const [showAddForm, setShowAddForm] = useState(false);
     const [wordDetailModal, setWordDetailModal] = useState({
@@ -212,13 +213,15 @@ const ReplaceWordsReview = () => {
             setValidationResult({
                 isOpen: true,
                 isValid: result.valid,
-                conflicts: result.conflicts || []
+                conflicts: result.conflicts || [],
+                warnings: result.warnings || []
             });
         } catch (err) {
             setValidationResult({
                 isOpen: true,
                 isValid: false,
-                conflicts: [{ type: 'error', message: '驗證請求失敗，請稍後再試' }]
+                conflicts: [{ type: 'error', message: '驗證請求失敗，請稍後再試' }],
+                warnings: []
             });
         }
     };
@@ -465,6 +468,7 @@ const ReplaceWordsReview = () => {
                 isOpen={validationResult.isOpen}
                 isValid={validationResult.isValid}
                 conflicts={validationResult.conflicts}
+                warnings={validationResult.warnings}
                 onClose={() => setValidationResult(prev => ({ ...prev, isOpen: false }))}
             />
 
