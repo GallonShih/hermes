@@ -200,24 +200,50 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
 
     // Chart Data Preparation
     const filledChartData = (() => {
-        if (hourlyStats.length === 0) return [];
         const dataMap = new Map();
         hourlyStats.forEach(item => dataMap.set(new Date(item.hour).getTime(), item.count));
 
         let minTime, maxTime;
-        if (startTime && endTime) {
-            minTime = new Date(startTime); minTime.setMinutes(0, 0, 0); minTime = minTime.getTime();
-            maxTime = new Date(endTime); maxTime.setMinutes(0, 0, 0); maxTime = maxTime.getTime();
+
+        // 判斷時間範圍
+        if (startTime) {
+            minTime = new Date(startTime);
+            minTime.setMinutes(0, 0, 0);
+            minTime = minTime.getTime();
+
+            // 如果沒有 endTime，預設為當前時間
+            if (endTime) {
+                maxTime = new Date(endTime);
+            } else {
+                maxTime = new Date();
+            }
+            maxTime.setMinutes(59, 0, 0); // 確保涵蓋到當前小時的結尾
+            maxTime = maxTime.getTime();
         } else {
-            const times = Array.from(dataMap.keys());
-            minTime = Math.min(...times);
-            maxTime = Math.max(...times);
+            // 如果沒有指定時間範圍，預設顯示過去 12 小時
+            const now = new Date();
+            maxTime = now.getTime();
+            minTime = now.getTime() - 12 * 60 * 60 * 1000;
         }
 
+        // 處理邊界情況
+        if (!minTime || !maxTime || minTime > maxTime) return [];
+
         const result = [];
-        for (let t = minTime; t <= maxTime; t += 3600000) {
-            result.push({ x: t, y: dataMap.get(t) || 0 });
+
+        const current = new Date(minTime);
+        current.setMinutes(0, 0, 0);
+        current.setSeconds(0);
+        current.setMilliseconds(0);
+
+        const end = new Date(maxTime);
+
+        while (current <= end) {
+            const timestamp = current.getTime();
+            result.push({ x: timestamp, y: dataMap.get(timestamp) || 0 });
+            current.setHours(current.getHours() + 1);
         }
+
         return result;
     })();
 
@@ -233,6 +259,15 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
             pointHoverRadius: 4,
         }]
     };
+
+    // 計算有效的時間範圍 (用於 X 軸設定)
+    const effectiveEndTime = endTime ? new Date(endTime) : new Date();
+    effectiveEndTime.setMinutes(59, 59, 999);
+
+    const effectiveStartTime = startTime
+        ? new Date(startTime)
+        : new Date(effectiveEndTime.getTime() - 12 * 60 * 60 * 1000); // Default 12 hours ago
+    effectiveStartTime.setMinutes(0, 0, 0);
 
     const chartOptions = {
         responsive: true,
@@ -260,7 +295,8 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                 type: 'time',
                 time: { unit: 'hour', displayFormats: { hour: 'MM/dd HH:mm' } },
                 title: { display: true, text: '時間' },
-                ...(startTime && endTime ? { min: new Date(startTime).setMinutes(0, 0, 0), max: new Date(endTime).setMinutes(59, 59, 999) } : {})
+                min: effectiveStartTime.getTime(),
+                max: effectiveEndTime.getTime()
             },
             y: { beginAtZero: true, title: { display: true, text: '訊息數' }, ticks: { stepSize: 1 } }
         }
@@ -382,7 +418,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
             <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="h-48 sm:h-56 md:h-64">
                     {statsLoading && hourlyStats.length === 0 ? <div className="flex justify-center h-full items-center text-sm text-gray-500">載入圖表中...</div> :
-                        hourlyStats.length === 0 ? <div className="flex justify-center h-full items-center text-sm text-gray-500">無資料</div> :
+                        filledChartData.length === 0 ? <div className="flex justify-center h-full items-center text-sm text-gray-500">無資料</div> :
                             <Line data={chartData} options={chartOptions} />}
                 </div>
             </div>
