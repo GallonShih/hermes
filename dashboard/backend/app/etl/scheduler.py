@@ -35,8 +35,16 @@ def init_scheduler(database_url: str) -> BackgroundScheduler:
         return _scheduler
 
     # 設定 jobstore（使用 PostgreSQL 持久化）
+    from sqlalchemy import create_engine
+    jobstore_engine = create_engine(
+        database_url,
+        pool_size=1,
+        max_overflow=1,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
     jobstores = {
-        'default': SQLAlchemyJobStore(url=database_url)
+        'default': SQLAlchemyJobStore(engine=jobstore_engine)
     }
 
     # 設定執行緒池
