@@ -102,6 +102,14 @@ class CollectorWorker:
         self.chat_watchdog_thread.daemon = True
         self.chat_watchdog_thread.start()
 
+        # Start stats watchdog thread
+        self.stats_watchdog_thread = threading.Thread(
+            target=self._stats_watchdog,
+            name="StatsWatchdog"
+        )
+        self.stats_watchdog_thread.daemon = True
+        self.stats_watchdog_thread.start()
+
         logger.info(f"Worker started for video: {self.video_id}")
         logger.info("Press Ctrl+C to stop...")
 
@@ -332,6 +340,41 @@ class CollectorWorker:
                         
             except Exception as e:
                 logger.error(f"Watchdog error: {e}")
+
+    def _stats_watchdog(self):
+        """Monitor stats collector health and restart if hung"""
+        timeout = Config.STATS_WATCHDOG_TIMEOUT
+        check_interval = Config.CHAT_WATCHDOG_CHECK_INTERVAL
+        logger.info(f"Stats watchdog started (timeout: {timeout}s, check interval: {check_interval}s)")
+
+        while self.is_running:
+            try:
+                time.sleep(check_interval)
+
+                if not self.is_running:
+                    break
+
+                if self._stream_ended.is_set():
+                    continue
+
+                if self.stats_collector and self.stats_collector.last_poll_time:
+                    current_time = time.time()
+                    idle_time = current_time - self.stats_collector.last_poll_time
+
+                    if idle_time > timeout:
+                        logger.warning(f"Stats collector appears hung (no poll for {idle_time:.0f}s, threshold: {timeout}s)")
+                        logger.info("Restarting stats collector...")
+
+                        self.stats_collector.stop_polling()
+                        time.sleep(2)
+
+                        with self._restart_lock:
+                            self.stats_collector = StatsCollector()
+
+                        logger.info("Stats collector restarted by watchdog")
+
+            except Exception as e:
+                logger.error(f"Stats watchdog error: {e}")
 
     def _handle_url_change(self, new_url):
         """Handle YouTube URL change by restarting collectors"""

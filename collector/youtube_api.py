@@ -51,6 +51,7 @@ class StatsCollector:
         self.youtube_client = YouTubeAPIClient(api_key)
         self.is_running = False
         self._stop_event = threading.Event()
+        self.last_poll_time = None
 
     def collect_stats(self, video_id):
         """Collect and save stream statistics.
@@ -119,6 +120,7 @@ class StatsCollector:
 
         self.is_running = True
         self._stop_event.clear()
+        self.last_poll_time = time.time()
         last_status = None
 
         while self.is_running:
@@ -140,6 +142,10 @@ class StatsCollector:
             except Exception as e:
                 logger.error(f"Stats collection error: {e}")
                 # Continue polling even if one collection fails
+            finally:
+                # Update even on failure so watchdog distinguishes
+                # "alive but failing" from "completely hung"
+                self.last_poll_time = time.time()
 
             if self.is_running:
                 # Use event wait instead of sleep so stop_polling() can interrupt immediately
