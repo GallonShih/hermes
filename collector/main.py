@@ -304,42 +304,42 @@ class CollectorWorker:
                 
                 # Skip monitoring if stream ended (chat is intentionally stopped waiting for URL change)
                 if self._stream_ended.is_set():
-                    logger.debug("Watchdog: Skipping check (stream ended)")
+                    logger.debug("Chat watchdog: skipping check (stream ended)")
                     continue
 
                 # Check if chat collector has activity
                 if self.chat_collector and self.chat_collector.last_activity_time:
                     current_time = time.time()
                     idle_time = current_time - self.chat_collector.last_activity_time
-                    
+
                     # Convert timestamps to readable format
                     from datetime import datetime
                     last_activity_dt = datetime.fromtimestamp(self.chat_collector.last_activity_time)
                     current_dt = datetime.fromtimestamp(current_time)
-                    
+
                     # Log activity status on every check
-                    logger.info(f"Watchdog: idle_time={idle_time:.0f}s, last_activity={last_activity_dt.strftime('%H:%M:%S')}, current={current_dt.strftime('%H:%M:%S')}")
-                    
+                    logger.info(f"Chat watchdog: idle_time={idle_time:.0f}s, last_activity={last_activity_dt.strftime('%H:%M:%S')}, current={current_dt.strftime('%H:%M:%S')}")
+
                     if idle_time > Config.CHAT_WATCHDOG_TIMEOUT:
-                        logger.warning(f"Chat collector appears hung (no activity for {idle_time:.0f}s, threshold: {Config.CHAT_WATCHDOG_TIMEOUT}s)")
-                        logger.info("Restarting chat collector...")
-                        
+                        logger.warning(f"Chat watchdog: collector appears hung (no activity for {idle_time:.0f}s, threshold: {Config.CHAT_WATCHDOG_TIMEOUT}s)")
+                        logger.info("Chat watchdog: restarting collector...")
+
                         # Stop current collector
                         self.chat_collector.stop_collection()
-                        
+
                         # Wait a moment for cleanup
                         time.sleep(2)
-                        
+
                         # Create new collector (no signal registration from non-main thread)
                         with self._restart_lock:
                             self.chat_collector = ChatCollector(self.video_id, register_signals=False)
-                        
-                        logger.info("Chat collector restarted by watchdog")
+
+                        logger.info("Chat watchdog: collector restarted")
                 else:
-                    logger.debug("Watchdog: chat_collector or last_activity_time not initialized yet")
+                    logger.debug("Chat watchdog: collector or last_activity_time not initialized yet")
                         
             except Exception as e:
-                logger.error(f"Watchdog error: {e}")
+                logger.error(f"Chat watchdog error: {e}")
 
     def _stats_watchdog(self):
         """Monitor stats collector health and restart if hung"""
@@ -355,15 +355,22 @@ class CollectorWorker:
                     break
 
                 if self._stream_ended.is_set():
+                    logger.debug("Stats watchdog: skipping check (stream ended)")
                     continue
 
                 if self.stats_collector and self.stats_collector.last_poll_time:
                     current_time = time.time()
                     idle_time = current_time - self.stats_collector.last_poll_time
 
+                    from datetime import datetime
+                    last_poll_dt = datetime.fromtimestamp(self.stats_collector.last_poll_time)
+                    current_dt = datetime.fromtimestamp(current_time)
+
+                    logger.info(f"Stats watchdog: idle_time={idle_time:.0f}s, last_poll={last_poll_dt.strftime('%H:%M:%S')}, current={current_dt.strftime('%H:%M:%S')}")
+
                     if idle_time > timeout:
-                        logger.warning(f"Stats collector appears hung (no poll for {idle_time:.0f}s, threshold: {timeout}s)")
-                        logger.info("Restarting stats collector...")
+                        logger.warning(f"Stats watchdog: collector appears hung (no poll for {idle_time:.0f}s, threshold: {timeout}s)")
+                        logger.info("Stats watchdog: restarting collector...")
 
                         self.stats_collector.stop_polling()
                         time.sleep(2)
@@ -371,7 +378,9 @@ class CollectorWorker:
                         with self._restart_lock:
                             self.stats_collector = StatsCollector()
 
-                        logger.info("Stats collector restarted by watchdog")
+                        logger.info("Stats watchdog: collector restarted")
+                else:
+                    logger.debug("Stats watchdog: collector or last_poll_time not initialized yet")
 
             except Exception as e:
                 logger.error(f"Stats watchdog error: {e}")
