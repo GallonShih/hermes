@@ -79,6 +79,7 @@ services:
     volumes:
       # Mount source code for development
       - ./collector:/app
+      - collector-backup:/data/backup
     depends_on:
       postgres:
         condition: service_healthy
@@ -348,3 +349,4 @@ networks:
 volumes:
   postgres_data:
   pgadmin_data:
+  collector-backup:
