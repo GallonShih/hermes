@@ -19,7 +19,7 @@ COPY . .
 
 # Create non-root user for security
 RUN groupadd -r hermes && useradd -r -g hermes hermes
-RUN chown -R hermes:hermes /app
+RUN mkdir -p /data/backup && chown -R hermes:hermes /app /data/backup
 USER hermes
 
 # Default command

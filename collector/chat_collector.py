@@ -8,6 +8,8 @@ import os
 import signal
 import atexit
 import json
+import glob
+import threading
 from chat_downloader import ChatDownloader
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from models import ChatMessage
@@ -34,7 +36,8 @@ class ChatCollector:
         
         # Batch write configuration (configurable via environment variables)
         self._buffer = []
-        self._buffer_size = int(os.getenv('CHAT_BUFFER_SIZE', 50))
+        self._buffer_lock = threading.Lock()
+        self._buffer_size = int(os.getenv('CHAT_BUFFER_SIZE', 10))
         self._flush_interval = int(os.getenv('CHAT_FLUSH_INTERVAL', 5))
         self._last_flush = time.time()
         
@@ -44,7 +47,7 @@ class ChatCollector:
         
         # Always register atexit handler (works from any thread)
         atexit.register(self._flush_buffer_sync)
-        
+
         logger.info(f"ChatCollector initialized with buffer_size={self._buffer_size}, "
                     f"flush_interval={self._flush_interval}s, signals={'registered' if register_signals else 'skipped'}")
     
@@ -76,73 +79,172 @@ class ChatCollector:
 
     def _flush_buffer_sync(self):
         """Synchronously flush all buffered messages to database."""
-        if not self._buffer:
-            return
-        
-        buffer_count = len(self._buffer)
+        # Atomically take the buffer contents under lock
+        with self._buffer_lock:
+            if not self._buffer:
+                return
+            flush_batch = list(self._buffer)
+            self._buffer.clear()
+
+        buffer_count = len(flush_batch)
         logger.info(f"Flushing {buffer_count} buffered messages...")
-        
+
         saved_count = 0
-        duplicate_count = 0
         error_count = 0
-        
+
+        failed_messages = []
+
         try:
             with get_db_session() as session:
-                for msg_data in self._buffer:
+                for msg_data in flush_batch:
                     try:
+                        # Use savepoint so one bad message doesn't rollback the whole batch
+                        nested = session.begin_nested()
                         chat_message = ChatMessage.from_chat_data(msg_data, self.live_stream_id)
                         if chat_message:
-                            # Use merge() for upsert behavior - skips duplicates gracefully
                             session.merge(chat_message)
+                            nested.commit()
                             saved_count += 1
+                        else:
+                            nested.rollback()
                     except Exception as e:
+                        nested.rollback()
                         error_count += 1
+                        failed_messages.append(msg_data)
                         logger.debug(f"Error processing message {msg_data.get('message_id')}: {e}")
-            
-            self._buffer.clear()
+
             self._last_flush = time.time()
-            
-            # Show heartbeat update info
+
             from datetime import datetime
             if self.last_activity_time:
                 last_activity_str = datetime.fromtimestamp(self.last_activity_time).strftime('%H:%M:%S')
                 logger.info(f"Buffer flushed: {saved_count} saved, {error_count} errors (last_activity={last_activity_str})")
             else:
                 logger.info(f"Buffer flushed: {saved_count} saved, {error_count} errors")
-            
+
+            # Backup only the failed messages
+            if failed_messages:
+                self._save_buffer_to_file(failed_messages)
+
         except Exception as e:
             logger.error(f"Failed to flush buffer: {e}")
-            # Backup buffer to local file in case of DB failure
-            self._save_buffer_to_file()
+            # DB connection-level failure — put messages back in buffer for retry
+            with self._buffer_lock:
+                self._buffer = flush_batch + self._buffer
+                # If buffer is getting too large, dump the oldest to disk to avoid OOM
+                if len(self._buffer) > self._buffer_size * 10:
+                    overflow = self._buffer[:len(self._buffer) - self._buffer_size * 10]
+                    self._buffer = self._buffer[len(self._buffer) - self._buffer_size * 10:]
+                    self._save_buffer_to_file(overflow)
 
-    def _save_buffer_to_file(self):
-        """Backup buffer to local file in case of DB failure."""
-        if not self._buffer:
+    def _save_buffer_to_file(self, messages):
+        """Backup messages to local file in case of DB failure."""
+        if not messages:
             return
-            
-        backup_dir = os.getenv('CHAT_BACKUP_DIR', '/tmp')
-        backup_path = os.path.join(backup_dir, f"chat_buffer_backup_{int(time.time())}.json")
-        
+
+        backup_root = os.getenv('CHAT_BACKUP_DIR', '/data/backup')
+        backup_dir = os.path.join(backup_root, self.live_stream_id)
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_path = os.path.join(backup_dir, f"chat_buffer_backup_{int(time.time())}_{threading.get_ident()}.json")
+
         try:
             # Convert to JSON-serializable format
             serializable_buffer = []
-            for msg in self._buffer:
+            for msg in messages:
                 try:
-                    # Attempt basic serialization
                     json.dumps(msg)
                     serializable_buffer.append(msg)
                 except (TypeError, ValueError):
-                    # Skip non-serializable messages
                     logger.warning(f"Skipping non-serializable message: {msg.get('message_id', 'unknown')}")
-            
+
             with open(backup_path, 'w', encoding='utf-8') as f:
                 json.dump(serializable_buffer, f, ensure_ascii=False, default=str)
-            
+
             logger.warning(f"Buffer backed up to {backup_path} ({len(serializable_buffer)} messages)")
-            self._buffer.clear()
-            
+
         except Exception as e:
             logger.error(f"Failed to save buffer backup: {e}")
+
+    def _save_filtered_message(self, message_data):
+        """Append a filtered message (no timestamp/author) to a JSONL file for later analysis."""
+        try:
+            backup_root = os.getenv('CHAT_BACKUP_DIR', '/data/backup')
+            filtered_dir = os.path.join(backup_root, self.live_stream_id)
+            os.makedirs(filtered_dir, exist_ok=True)
+            from datetime import date
+            filepath = os.path.join(filtered_dir, f"filtered_messages_{date.today().isoformat()}.jsonl")
+
+            with open(filepath, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(message_data, ensure_ascii=False, default=str) + '\n')
+        except Exception as e:
+            logger.debug(f"Failed to save filtered message: {e}")
+
+    def _import_backup_files(self):
+        """Import leftover backup JSON files from previous runs into the database.
+
+        Scans /data/backup/<live_stream_id>/ subdirectories. Each subdirectory
+        name is the live_stream_id used when writing those messages.
+        """
+        backup_root = os.getenv('CHAT_BACKUP_DIR', '/data/backup')
+        if not os.path.isdir(backup_root):
+            return
+
+        # Collect all (stream_id, filepath) pairs across all subdirectories
+        import_tasks = []
+        for stream_id in os.listdir(backup_root):
+            stream_dir = os.path.join(backup_root, stream_id)
+            if not os.path.isdir(stream_dir):
+                continue
+            for filepath in sorted(glob.glob(os.path.join(stream_dir, "chat_buffer_backup_*.json"))):
+                import_tasks.append((stream_id, filepath))
+
+        if not import_tasks:
+            return
+
+        logger.info(f"Found {len(import_tasks)} backup file(s) to import")
+
+        for stream_id, filepath in import_tasks:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    messages = json.load(f)
+
+                if not messages:
+                    os.remove(filepath)
+                    continue
+
+                saved_count = 0
+                error_count = 0
+                failed_messages = []
+
+                with get_db_session() as session:
+                    for msg_data in messages:
+                        try:
+                            nested = session.begin_nested()
+                            chat_message = ChatMessage.from_chat_data(msg_data, stream_id)
+                            if chat_message:
+                                session.merge(chat_message)
+                                nested.commit()
+                                saved_count += 1
+                            else:
+                                nested.rollback()
+                        except Exception as e:
+                            nested.rollback()
+                            error_count += 1
+                            failed_messages.append(msg_data)
+                            logger.debug(f"Error importing message: {e}")
+
+                if failed_messages:
+                    # Rewrite file with only the failed messages for retry
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        json.dump(failed_messages, f, ensure_ascii=False, default=str)
+                    logger.warning(f"Kept {len(failed_messages)} failed message(s) in {os.path.basename(filepath)}")
+                else:
+                    os.remove(filepath)
+
+                logger.info(f"Imported backup {stream_id}/{os.path.basename(filepath)}: {saved_count} saved, {error_count} errors")
+
+            except Exception as e:
+                logger.error(f"Failed to import backup {filepath}: {e}")
 
     def start_collection(self, url):
         """Start collecting chat messages from live stream"""
@@ -180,23 +282,23 @@ class ChatCollector:
         """Add message to buffer and flush if needed."""
         # Validate message before buffering
         chat_message = ChatMessage.from_chat_data(message_data, self.live_stream_id)
-        
+
         if chat_message is None:
-            # Skip messages that cannot be saved (e.g., ban_user, remove_chat_item, system messages)
             logger.debug(f"Skipping unsupported message type: {message_data.get('action_type')}")
+            self._save_filtered_message(message_data)
             return
-        
-        # Add raw data to buffer (we'll create ChatMessage objects during flush)
-        self._buffer.append(message_data)
-        
-        # Update heartbeat only when actual chat messages are buffered
-        self.last_activity_time = time.time()
-        
-        logger.debug(f"Buffered message: {message_data.get('message_id')} "
-                     f"(buffer: {len(self._buffer)}/{self._buffer_size})")
-        
-        # Flush if needed
-        if self._should_flush():
+
+        should_flush = False
+        with self._buffer_lock:
+            self._buffer.append(message_data)
+            # Update heartbeat only when actual chat messages are buffered
+            self.last_activity_time = time.time()
+            logger.debug(f"Buffered message: {message_data.get('message_id')} "
+                         f"(buffer: {len(self._buffer)}/{self._buffer_size})")
+            should_flush = self._should_flush()
+
+        # Flush outside lock to avoid holding lock during DB I/O
+        if should_flush:
             self._flush_buffer_sync()
 
     def _save_message(self, message_data):

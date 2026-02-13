@@ -67,6 +67,14 @@ class CollectorWorker:
         # Set running flag
         self.is_running = True
 
+        # Import leftover backup files in background (non-blocking)
+        backup_thread = threading.Thread(
+            target=self.chat_collector._import_backup_files,
+            name="BackupImporter",
+            daemon=True,
+        )
+        backup_thread.start()
+
         # Start chat collection in separate thread
         self.chat_thread = threading.Thread(
             target=self._run_chat_collection,
