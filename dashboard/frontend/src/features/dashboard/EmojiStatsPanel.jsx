@@ -44,7 +44,7 @@ const EmojiStatsPanel = ({ startTime, endTime, hasTimeFilter = false }) => {
     // UI State
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('');
-    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [autoRefresh, setAutoRefresh] = useState(false);
     const [refreshInterval, setRefreshInterval] = useState(10);
 
     // Filter state
@@ -96,153 +96,159 @@ const EmojiStatsPanel = ({ startTime, endTime, hasTimeFilter = false }) => {
 
     const totalPages = Math.ceil(total / limit);
 
-    if (loading && total === 0) {
-        return (
-            <div className="mt-8 glass-card rounded-2xl p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <FaceSmileIcon className="w-7 h-7 text-gray-400" />
-                    <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
-                </div>
-                <SkeletonTable rows={8} columns={4} />
-            </div>
-        );
-    }
-    if (error) {
-        return <div className="mt-8 glass-card rounded-2xl p-6 flex justify-center py-8 text-red-500">錯誤: {error}</div>;
-    }
+
 
     return (
         <div className="mt-8 glass-card rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex justify-between items-center mb-4">
                 <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
                     <FaceSmileIcon className="w-7 h-7" />
                     <span>表情統計</span>
                 </h2>
-                {isRefreshing && (
-                    <div className="flex items-center gap-2 text-sm text-indigo-600">
-                        <Spinner size="sm" />
-                        <span>更新中...</span>
-                    </div>
-                )}
-            </div>
-
-            {/* Filter */}
-            <div className="mb-4 p-4 glass rounded-xl space-y-3">
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                        <label className="text-sm font-medium whitespace-nowrap">搜尋：</label>
-                        <input
-                            type="text"
-                            value={localFilter}
-                            onChange={(e) => setLocalFilter(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="輸入關鍵字搜尋..."
-                            className="flex-1 px-3 py-2 border rounded text-sm w-full"
-                        />
-                        {localFilter && <button onClick={clearFilter} className="px-3 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300">清除</button>}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium whitespace-nowrap">類型：</label>
-                        <select
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value)}
-                            className="px-3 py-2 border rounded text-sm bg-white"
-                        >
-                            <option value="all">全部</option>
-                            <option value="youtube">YouTube</option>
-                            <option value="unicode">Unicode</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            {/* Table Header */}
-            <div className="mb-2 grid grid-cols-[80px_1fr_120px_120px] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
-                <span className="text-center">表情</span>
-                <span>代碼</span>
-                <span className="text-center">訊息數</span>
-                <span className="text-center">類型</span>
-            </div>
-
-            {/* Table Body */}
-            <div className="space-y-0 max-h-96 overflow-y-auto">
-                {emojis.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">暫無表情資料</div>
-                ) : (
-                    emojis.map((emoji, index) => <EmojiRow key={`${emoji.name}-${emoji.is_youtube_emoji}-${index}`} emoji={emoji} />)
-                )}
-            </div>
-
-            {/* Auto-refresh controls */}
-            <div className="flex items-center gap-4 mt-4 p-3 glass rounded-xl">
-                <label className="flex items-center gap-2">
-                    <input
-                        type="checkbox"
-                        checked={autoRefresh}
-                        onChange={(e) => setAutoRefresh(e.target.checked)}
-                        disabled={hasTimeFilter}
-                        className="w-4 h-4 disabled:opacity-50"
-                    />
-                    <span className="text-sm font-medium">自動刷新{hasTimeFilter && ' (已停用 - 時間範圍已固定)'}</span>
-                </label>
-                {autoRefresh && (
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm">每</span>
-                        <input
-                            type="number"
-                            min="5"
-                            max="300"
-                            value={refreshInterval}
-                            onChange={(e) => setRefreshInterval(parseInt(e.target.value) || 10)}
-                            className="w-16 px-2 py-1 border rounded text-center text-sm"
-                        />
-                        <span className="text-sm">秒</span>
-                    </div>
-                )}
-            </div>
-
-            {/* Pagination */}
-            {total > 0 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                <div className="flex gap-2">
+                    {isRefreshing && (
+                        <div className="flex items-center gap-2 text-sm text-indigo-600 mr-2">
+                            <Spinner size="sm" />
+                            <span>更新中...</span>
+                        </div>
+                    )}
                     <button
-                        onClick={() => setCurrentPage(p => p - 1)}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                        onClick={() => getEmojis({ limit, offset: (currentPage - 1) * limit, startTime, endTime, filter, typeFilter })}
+                        disabled={isRefreshing || loading}
+                        className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                        title="手動刷新資料"
                     >
-                        上一頁
-                    </button>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            const p = parseInt(pageInput);
-                            if (p >= 1 && p <= totalPages) {
-                                setCurrentPage(p);
-                                setPageInput('');
-                            }
-                        }}
-                        className="flex items-center gap-2"
-                    >
-                        <span className="text-sm">第</span>
-                        <input
-                            type="number"
-                            min="1"
-                            max={totalPages}
-                            value={pageInput}
-                            onChange={(e) => setPageInput(e.target.value)}
-                            placeholder={currentPage.toString()}
-                            className="w-16 px-2 py-1 border rounded text-center text-sm"
-                        />
-                        <span className="text-sm">/ {totalPages} 頁 (共 {total.toLocaleString()} 種表情)</span>
-                    </form>
-                    <button
-                        onClick={() => setCurrentPage(p => p + 1)}
-                        disabled={currentPage >= totalPages}
-                        className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-                    >
-                        下一頁
+                        <ArrowPathIcon className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <span>刷新</span>
                     </button>
                 </div>
+            </div>
+
+            {loading && total === 0 ? (
+                <SkeletonTable rows={8} columns={4} />
+            ) : error ? (
+                <div className="flex justify-center py-8 text-red-500">錯誤: {error}</div>
+            ) : (
+                <>
+                    {/* Filter */}
+                    <div className="mb-4 p-4 glass rounded-xl space-y-3">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                <label className="text-sm font-medium whitespace-nowrap">搜尋：</label>
+                                <input
+                                    type="text"
+                                    value={localFilter}
+                                    onChange={(e) => setLocalFilter(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="輸入關鍵字搜尋..."
+                                    className="flex-1 px-3 py-2 border rounded text-sm w-full"
+                                />
+                                {localFilter && <button onClick={clearFilter} className="px-3 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300">清除</button>}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium whitespace-nowrap">類型：</label>
+                                <select
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilter(e.target.value)}
+                                    className="px-3 py-2 border rounded text-sm bg-white"
+                                >
+                                    <option value="all">全部</option>
+                                    <option value="youtube">YouTube</option>
+                                    <option value="unicode">Unicode</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Table Header */}
+                    <div className="mb-2 grid grid-cols-[80px_1fr_120px_120px] gap-4 text-sm font-semibold text-gray-600 border-b-2 border-gray-300 pb-2">
+                        <span className="text-center">表情</span>
+                        <span>代碼</span>
+                        <span className="text-center">訊息數</span>
+                        <span className="text-center">類型</span>
+                    </div>
+
+                    {/* Table Body */}
+                    <div className="space-y-0 max-h-96 overflow-y-auto">
+                        {emojis.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">暫無表情資料</div>
+                        ) : (
+                            emojis.map((emoji, index) => <EmojiRow key={`${emoji.name}-${emoji.is_youtube_emoji}-${index}`} emoji={emoji} />)
+                        )}
+                    </div>
+
+                    {/* Auto-refresh controls */}
+                    <div className="flex items-center gap-4 mt-4 p-3 glass rounded-xl">
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={autoRefresh}
+                                onChange={(e) => setAutoRefresh(e.target.checked)}
+                                disabled={hasTimeFilter}
+                                className="w-4 h-4 disabled:opacity-50"
+                            />
+                            <span className="text-sm font-medium">自動刷新{hasTimeFilter && ' (已停用 - 時間範圍已固定)'}</span>
+                        </label>
+                        {autoRefresh && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm">每</span>
+                                <input
+                                    type="number"
+                                    min="5"
+                                    max="300"
+                                    value={refreshInterval}
+                                    onChange={(e) => setRefreshInterval(parseInt(e.target.value) || 10)}
+                                    className="w-16 px-2 py-1 border rounded text-center text-sm"
+                                />
+                                <span className="text-sm">秒</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {total > 0 && (
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                            <button
+                                onClick={() => setCurrentPage(p => p - 1)}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                            >
+                                上一頁
+                            </button>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const p = parseInt(pageInput);
+                                    if (p >= 1 && p <= totalPages) {
+                                        setCurrentPage(p);
+                                        setPageInput('');
+                                    }
+                                }}
+                                className="flex items-center gap-2"
+                            >
+                                <span className="text-sm">第</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={totalPages}
+                                    value={pageInput}
+                                    onChange={(e) => setPageInput(e.target.value)}
+                                    placeholder={currentPage.toString()}
+                                    className="w-16 px-2 py-1 border rounded text-center text-sm"
+                                />
+                                <span className="text-sm">/ {totalPages} 頁 (共 {total.toLocaleString()} 種表情)</span>
+                            </form>
+                            <button
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                disabled={currentPage >= totalPages}
+                                className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                            >
+                                下一頁
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
