@@ -30,6 +30,9 @@ const AuthorStatsPanel = ({
     hasTimeFilter = false
 }) => {
     const [topAuthors, setTopAuthors] = useState([]);
+    const [totalAuthors, setTotalAuthors] = useState(0);
+    const [displayedAuthors, setDisplayedAuthors] = useState(0);
+    const [tieExtended, setTieExtended] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -48,10 +51,15 @@ const AuthorStatsPanel = ({
                 endTime,
                 authorFilter,
                 messageFilter,
-                paidMessageFilter
+                paidMessageFilter,
+                includeMeta: true
             });
 
-            setTopAuthors(data || []);
+            const authors = data?.top_authors || [];
+            setTopAuthors(authors);
+            setTotalAuthors(data?.total_authors ?? authors.length);
+            setDisplayedAuthors(data?.displayed_authors ?? authors.length);
+            setTieExtended(Boolean(data?.tie_extended));
             setError(null);
         } catch (err) {
             console.error('Error fetching top authors:', err);
@@ -159,9 +167,12 @@ const AuthorStatsPanel = ({
             <div className="flex items-center gap-2 mb-3">
                 <UserGroupIcon className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-sm font-semibold text-gray-700">發言排行榜</h3>
-                {topAuthors.length > 5 && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    共 {totalAuthors} 位作者
+                </span>
+                {tieExtended && (
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                        含同名次 {topAuthors.length} 人
+                        含同名次顯示 {displayedAuthors} 位
                     </span>
                 )}
             </div>
