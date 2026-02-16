@@ -1,3 +1,8 @@
+from datetime import datetime, timezone
+
+from app.models import ChatMessage
+
+
 def test_get_chat_messages_empty(client):
     response = client.get("/api/chat/messages")
     assert response.status_code == 200
@@ -81,6 +86,7 @@ def test_get_top_authors_with_data(client, sample_chat_messages):
     data = response.json()
     assert isinstance(data, list)
     if len(data) > 0:
+        assert "author_id" in data[0]
         assert "author" in data[0]
         assert "count" in data[0]
 
@@ -109,3 +115,73 @@ def test_get_top_authors_with_time_range(client, sample_chat_messages):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+
+
+def test_get_top_authors_include_meta(client, sample_chat_messages):
+    """Test top authors endpoint with metadata payload."""
+    response = client.get(
+        "/api/chat/top-authors?include_meta=true"
+        "&start_time=2026-01-01T00:00:00&end_time=2026-12-31T23:59:59"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    assert isinstance(data, dict)
+    assert "top_authors" in data
+    assert "total_authors" in data
+    assert "displayed_authors" in data
+    assert "tie_extended" in data
+    assert data["total_authors"] == 10
+    assert data["displayed_authors"] == len(data["top_authors"])
+
+
+def test_get_top_authors_uses_author_id_and_latest_name(client, db):
+    """Test aggregation by author_id and display name from latest message."""
+    older = ChatMessage(
+        message_id="same_author_old",
+        live_stream_id="test_stream",
+        message="hello old",
+        timestamp=1704067200000000,
+        published_at=datetime(2026, 1, 12, 10, 0, 0, tzinfo=timezone.utc),
+        author_name="OldName",
+        author_id="same_user",
+        message_type="text_message",
+        raw_data=None,
+    )
+    newer = ChatMessage(
+        message_id="same_author_new",
+        live_stream_id="test_stream",
+        message="hello new",
+        timestamp=1704067201000000,
+        published_at=datetime(2026, 1, 12, 10, 1, 0, tzinfo=timezone.utc),
+        author_name="NewName",
+        author_id="same_user",
+        message_type="text_message",
+        raw_data=None,
+    )
+    another = ChatMessage(
+        message_id="another_author",
+        live_stream_id="test_stream",
+        message="another",
+        timestamp=1704067202000000,
+        published_at=datetime(2026, 1, 12, 10, 2, 0, tzinfo=timezone.utc),
+        author_name="AnotherName",
+        author_id="another_user",
+        message_type="text_message",
+        raw_data=None,
+    )
+    db.add_all([older, newer, another])
+    db.flush()
+
+    response = client.get(
+        "/api/chat/top-authors?include_meta=true"
+        "&start_time=2026-01-01T00:00:00&end_time=2026-12-31T23:59:59"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    top = data["top_authors"]
+    assert top[0]["author_id"] == "same_user"
+    assert top[0]["count"] == 2
+    assert top[0]["author"] == "NewName"
+    assert data["total_authors"] == 2

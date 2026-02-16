@@ -33,13 +33,14 @@ export const fetchChatMessageStats = async ({ startTime, endTime, authorFilter, 
     return response.json();
 };
 
-export const fetchTopAuthors = async ({ startTime, endTime, authorFilter, messageFilter, paidMessageFilter }) => {
+export const fetchTopAuthors = async ({ startTime, endTime, authorFilter, messageFilter, paidMessageFilter, includeMeta = false }) => {
     const params = new URLSearchParams();
     if (startTime) params.append('start_time', startTime);
     if (endTime) params.append('end_time', endTime);
     if (authorFilter) params.append('author_filter', authorFilter);
     if (messageFilter) params.append('message_filter', messageFilter);
     if (paidMessageFilter && paidMessageFilter !== 'all') params.append('paid_message_filter', paidMessageFilter);
+    if (includeMeta) params.append('include_meta', 'true');
 
     const response = await fetch(`${API_BASE_URL}/api/chat/top-authors?${params}`);
     if (!response.ok) {

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from datetime import datetime, timedelta
 import logging
 
@@ -155,6 +155,7 @@ def get_top_authors(
     author_filter: str = None,
     message_filter: str = None,
     paid_message_filter: str = 'all',
+    include_meta: bool = False,
     db: Session = Depends(get_db)
 ):
     """Get top 5 authors by message count with tie handling.
@@ -170,11 +171,8 @@ def get_top_authors(
         if not effective_start and not end_time:
             effective_start = datetime.utcnow() - timedelta(hours=12)
         
-        # Group by author and count messages
-        query = db.query(
-            ChatMessage.author_name,
-            func.count().label('count')
-        )
+        # Build a shared filtered query so all aggregates use the same scope.
+        query = db.query(ChatMessage)
         
         if video_id:
             query = query.filter(ChatMessage.live_stream_id == video_id)
@@ -195,19 +193,69 @@ def get_top_authors(
         elif paid_message_filter == 'non_paid_only':
             query = query.filter(ChatMessage.message_type.notin_(PAID_MESSAGE_TYPES))
         
-        # Group and order by count descending
-        author_counts = query.group_by(
-            ChatMessage.author_name
+        total_authors = query.with_entities(
+            ChatMessage.author_id
+        ).distinct().count()
+
+        # Aggregate counts by stable author_id.
+        author_counts_subquery = query.with_entities(
+            ChatMessage.author_id.label('author_id'),
+            func.count().label('count')
+        ).group_by(
+            ChatMessage.author_id
+        ).subquery()
+
+        # Find the latest timestamp per author_id in the same filtered scope.
+        latest_timestamp_subquery = query.with_entities(
+            ChatMessage.author_id.label('author_id'),
+            func.max(ChatMessage.published_at).label('latest_published_at')
+        ).group_by(
+            ChatMessage.author_id
+        ).subquery()
+
+        # Resolve display name from each author's latest message.
+        latest_name_subquery = db.query(
+            ChatMessage.author_id.label('author_id'),
+            func.max(ChatMessage.author_name).label('author_name')
+        ).join(
+            latest_timestamp_subquery,
+            and_(
+                ChatMessage.author_id == latest_timestamp_subquery.c.author_id,
+                ChatMessage.published_at == latest_timestamp_subquery.c.latest_published_at
+            )
+        ).group_by(
+            ChatMessage.author_id
+        ).subquery()
+
+        author_counts = db.query(
+            author_counts_subquery.c.author_id,
+            author_counts_subquery.c.count,
+            latest_name_subquery.c.author_name
+        ).outerjoin(
+            latest_name_subquery,
+            author_counts_subquery.c.author_id == latest_name_subquery.c.author_id
         ).order_by(
-            func.count().desc()
+            author_counts_subquery.c.count.desc(),
+            author_counts_subquery.c.author_id.asc()
         ).all()
-        
+
         if not author_counts:
+            if include_meta:
+                return {
+                    "top_authors": [],
+                    "total_authors": 0,
+                    "displayed_authors": 0,
+                    "tie_extended": False
+                }
             return []
-        
+
         # Convert to list of dicts
         sorted_authors = [
-            {"author": row.author_name or "Unknown", "count": row.count}
+            {
+                "author_id": row.author_id,
+                "author": row.author_name or "Unknown",
+                "count": row.count
+            }
             for row in author_counts
         ]
         
@@ -218,9 +266,16 @@ def get_top_authors(
         else:
             top_authors = sorted_authors
         
+        if include_meta:
+            return {
+                "top_authors": top_authors,
+                "total_authors": total_authors,
+                "displayed_authors": len(top_authors),
+                "tie_extended": len(top_authors) > 5
+            }
+
         return top_authors
         
     except Exception as e:
         logger.error(f"Error fetching top authors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
