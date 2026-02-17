@@ -5,6 +5,7 @@ from typing import Optional, List
 from collections import defaultdict
 import bisect
 import logging
+import time
 
 from app.core.database import get_db
 from app.core.settings import get_current_video_id
@@ -95,6 +96,13 @@ def get_playback_snapshots(
 
         video_id = get_current_video_id(db)
 
+        t_total = time.monotonic()
+        logger.info(
+            "playback-snapshots request: range=%s~%s step=%ds video=%s",
+            start_time.isoformat(), end_time.isoformat(),
+            step_seconds, video_id,
+        )
+
         # Get viewer stats — only needed columns (avoids loading raw_response JSONB)
         viewer_query = db.query(
             StreamStats.collected_at, StreamStats.concurrent_viewers
@@ -106,7 +114,9 @@ def get_playback_snapshots(
         if video_id:
             viewer_query = viewer_query.filter(StreamStats.live_stream_id == video_id)
 
+        t_q = time.monotonic()
         viewer_rows = viewer_query.all()
+        t_viewer = time.monotonic() - t_q
         # Pre-compute sorted timestamp arrays for binary search
         viewer_times = [normalize_dt(r.collected_at).timestamp() for r in viewer_rows]
         viewer_counts = [r.concurrent_viewers for r in viewer_rows]
@@ -120,11 +130,13 @@ def get_playback_snapshots(
             ts_query = ts_query.filter(ChatMessage.live_stream_id == video_id)
         ts_query = ts_query.order_by(ChatMessage.published_at)
 
+        t_q = time.monotonic()
         sorted_timestamps = [
             normalize_dt(row.published_at)
             for row in ts_query.all()
             if row.published_at
         ]
+        t_ts = time.monotonic() - t_q
 
         # Query B: paid messages only (~5% of total) — need raw_data for revenue
         paid_query = db.query(
@@ -138,11 +150,20 @@ def get_playback_snapshots(
             paid_query = paid_query.filter(ChatMessage.live_stream_id == video_id)
         paid_query = paid_query.order_by(ChatMessage.published_at)
 
+        t_q = time.monotonic()
         paid_messages = [
             (normalize_dt(row.published_at), row.message_type, row.raw_data)
             for row in paid_query.all()
             if row.published_at
         ]
+        t_paid = time.monotonic() - t_q
+
+        logger.info(
+            "playback queries: viewer=%d/%.3fs timestamps=%d/%.3fs paid=%d/%.3fs",
+            len(viewer_rows), t_viewer,
+            len(sorted_timestamps), t_ts,
+            len(paid_messages), t_paid,
+        )
 
         # Get currency rates for revenue calculation
         rates_query = db.query(CurrencyRate).all()
@@ -242,6 +263,11 @@ def get_playback_snapshots(
             })
 
             current_time += step_delta
+
+        logger.info(
+            "playback-snapshots done: snapshots=%d total=%.3fs",
+            len(snapshots), time.monotonic() - t_total,
+        )
 
         return {
             "snapshots": snapshots,

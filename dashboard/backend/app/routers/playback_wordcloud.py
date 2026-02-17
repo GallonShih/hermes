@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 from collections import Counter, defaultdict
 import logging
+import time
 
 from app.core.database import get_db
 from app.core.settings import get_current_video_id
@@ -136,6 +137,13 @@ def get_word_frequency_snapshots(
         
         video_id = get_current_video_id(db)
 
+        t_total = time.monotonic()
+        logger.info(
+            "word-frequency-snapshots request: range=%s~%s step=%ds window=%dh limit=%d video=%s",
+            start_time.isoformat(), end_time.isoformat(),
+            step_seconds, window_hours, word_limit, video_id,
+        )
+
         # Generate all snapshots via single-query sliding window
         snapshots = _compute_all_snapshots(
             db=db,
@@ -147,6 +155,11 @@ def get_word_frequency_snapshots(
             excluded=excluded,
             replace_dict=replace_dict,
             word_limit=word_limit,
+        )
+
+        logger.info(
+            "word-frequency-snapshots done: snapshots=%d total=%.3fs",
+            len(snapshots), time.monotonic() - t_total,
         )
 
         return {
@@ -191,6 +204,7 @@ def _compute_all_snapshots(
     query_start = start_time - timedelta(seconds=window_seconds)
 
     # Step 1: Single SQL query for the entire range
+    t_query = time.monotonic()
     query = """
         SELECT DISTINCT message_id, published_at, unnest(tokens) AS word
         FROM processed_chat_messages
@@ -204,14 +218,18 @@ def _compute_all_snapshots(
     query += " ORDER BY published_at"
 
     result = db.execute(text(query), params)
+    logger.info("wordcloud SQL executed: %.3fs", time.monotonic() - t_query)
 
     # Step 2: Pre-process rows — replace, filter, dedupe, bucket
     # Iterate directly over result (client-side cursor) to avoid
     # materializing all rows as a Python list (~2.8 GB at 10M rows).
+    t_process = time.monotonic()
     bucket_counters: Dict[int, Counter] = defaultdict(Counter)
     seen_pairs: set = set()
+    row_count = 0
 
     for message_id, published_at, word in result:
+        row_count += 1
         replaced_word = replace_dict.get(word, word) if replace_dict else word
         if replaced_word in excluded:
             continue
@@ -224,7 +242,14 @@ def _compute_all_snapshots(
         bucket_idx = int((pub - query_start).total_seconds()) // step_seconds
         bucket_counters[bucket_idx][replaced_word] += 1
 
+    logger.info(
+        "wordcloud pre-process: rows=%d unique_pairs=%d buckets=%d elapsed=%.3fs",
+        row_count, len(seen_pairs), len(bucket_counters),
+        time.monotonic() - t_process,
+    )
+
     # Step 3: Sliding window over buckets
+    t_slide = time.monotonic()
     window_buckets = window_seconds // step_seconds
     # Generate snapshot timestamps
     step_delta = timedelta(seconds=step_seconds)
@@ -268,5 +293,9 @@ def _compute_all_snapshots(
             if leaving in bucket_counters:
                 running -= bucket_counters[leaving]
 
+    logger.info(
+        "wordcloud sliding-window: snapshots=%d elapsed=%.3fs",
+        len(snapshots), time.monotonic() - t_slide,
+    )
     return snapshots
 
