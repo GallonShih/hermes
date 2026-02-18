@@ -30,7 +30,7 @@ ChartJS.register(
     Legend
 );
 
-const MessageRow = ({ message }) => {
+const MessageRow = ({ message, onAuthorSelect }) => {
     const renderMessageWithEmojis = (messageText, emotes) => {
         if (!messageText) return null;
         if (!emotes || emotes.length === 0) {
@@ -104,7 +104,14 @@ const MessageRow = ({ message }) => {
             {/* Mobile: Card layout */}
             <div className="md:hidden border-b border-gray-200 py-3 px-2 hover:bg-gray-50 space-y-1">
                 <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-700 truncate max-w-[60%]">{message.author || 'Unknown'}</span>
+                    <button
+                        type="button"
+                        onClick={() => onAuthorSelect?.(message.author_id)}
+                        disabled={!message.author_id}
+                        className="font-semibold text-gray-700 truncate max-w-[60%] text-left hover:underline disabled:no-underline disabled:cursor-default"
+                    >
+                        {message.author || 'Unknown'}
+                    </button>
                     <span className="text-xs text-gray-400">{formatMessageTime(message.time)}</span>
                 </div>
                 <div className="text-sm text-gray-900 break-words">{renderMessageWithEmojis(message.message, message.emotes)}</div>
@@ -115,7 +122,14 @@ const MessageRow = ({ message }) => {
             {/* Desktop: Grid layout */}
             <div className="hidden md:grid grid-cols-[140px_minmax(100px,1fr)_minmax(200px,2fr)_100px] lg:grid-cols-[180px_minmax(150px,1fr)_minmax(300px,2fr)_120px] gap-2 lg:gap-4 text-sm border-b border-gray-200 py-2 hover:bg-gray-50">
                 <span className="text-gray-500 whitespace-nowrap text-xs lg:text-sm">{formatMessageTime(message.time)}</span>
-                <span className="font-semibold text-gray-700 truncate">{message.author || 'Unknown'}</span>
+                <button
+                    type="button"
+                    onClick={() => onAuthorSelect?.(message.author_id)}
+                    disabled={!message.author_id}
+                    className="font-semibold text-gray-700 truncate text-left hover:underline disabled:no-underline disabled:cursor-default"
+                >
+                    {message.author || 'Unknown'}
+                </button>
                 <span className="text-gray-900 break-words">{renderMessageWithEmojis(message.message, message.emotes)}</span>
                 <span className={`font-semibold ${moneyText ? 'text-green-600' : 'text-gray-400'}`}>{moneyText || '-'}</span>
             </div>
@@ -123,7 +137,7 @@ const MessageRow = ({ message }) => {
     );
 };
 
-const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
+const MessageList = ({ startTime, endTime, hasTimeFilter = false, onAuthorSelect }) => {
     // Local UI state
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('');
@@ -394,7 +408,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                         <span>時間</span><span>作者</span><span>訊息</span><span>金額</span>
                     </div>
                     <div className="space-y-0 max-h-96 overflow-y-auto">
-                        {messages.length === 0 ? <div className="text-center py-8 text-gray-500">暫無訊息</div> : messages.map((msg) => <MessageRow key={msg.id} message={msg} />)}
+                        {messages.length === 0 ? <div className="text-center py-8 text-gray-500">暫無訊息</div> : messages.map((msg) => <MessageRow key={msg.id} message={msg} onAuthorSelect={onAuthorSelect} />)}
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-4 p-3 bg-gray-50 rounded">
@@ -439,6 +453,7 @@ const MessageList = ({ startTime, endTime, hasTimeFilter = false }) => {
                         messageFilter={messageFilter}
                         paidMessageFilter={paidMessageFilter}
                         hasTimeFilter={hasTimeFilter}
+                        onAuthorSelect={onAuthorSelect}
                     />
                 </>
             )}

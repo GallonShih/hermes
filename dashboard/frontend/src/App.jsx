@@ -7,6 +7,7 @@ import Dashboard from './features/dashboard/Dashboard';
 import AdminPanel from './features/admin/AdminPanel';
 import PlaybackPage from './features/playback/PlaybackPage';
 import TrendsPage from './features/trends/TrendsPage';
+import AuthorPage from './features/authors/AuthorPage';
 
 // Protected Route component for admin-only pages
 const ProtectedRoute = ({ children }) => {
@@ -39,6 +40,7 @@ function AppRoutes() {
             } />
             <Route path="/playback" element={<PlaybackPage />} />
             <Route path="/trends" element={<TrendsPage />} />
+            <Route path="/authors/:authorId" element={<AuthorPage />} />
         </Routes>
     );
 }

@@ -18,6 +18,7 @@ import MoneyStats from './MoneyStats';
 import EmojiStatsPanel from './EmojiStatsPanel';
 import StreamInfoBar from './StreamInfoBar';
 import EventMarkerModal from './EventMarkerModal';
+import AuthorDetailDrawer from '../authors/AuthorDetailDrawer';
 import { useDefaultStartTime } from '../../hooks/useDefaultStartTime';
 
 registerChartComponents();
@@ -38,6 +39,8 @@ function Dashboard() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [toggleRefresh, setToggleRefresh] = useState(true);
+    const [selectedAuthorId, setSelectedAuthorId] = useState(null);
+    const [isAuthorDrawerOpen, setIsAuthorDrawerOpen] = useState(false);
 
     // Default period
     const { defaultStartTime, loading: defaultPeriodLoading } = useDefaultStartTime();
@@ -363,6 +366,19 @@ function Dashboard() {
         },
     }), [timeAxisConfig, commentData, viewData, endDate, barFlash, eventMarkers, showMarkerLabels, markerOpacity]);
 
+    const detailStartTime = startDate ? new Date(startDate).toISOString() : null;
+    const detailEndTime = endDate ? (() => {
+        const d = new Date(endDate);
+        d.setMinutes(59, 59, 999);
+        return d.toISOString();
+    })() : null;
+
+    const handleAuthorSelect = (authorId) => {
+        if (!authorId) return;
+        setSelectedAuthorId(authorId);
+        setIsAuthorDrawerOpen(true);
+    };
+
     return (
         <div className="min-h-screen font-sans text-gray-900">
             <div className="max-w-7xl mx-auto p-4 md:p-8">
@@ -485,46 +501,40 @@ function Dashboard() {
 
                 {/* Money Statistics */}
                 <MoneyStats
-                    startTime={startDate ? new Date(startDate).toISOString() : null}
-                    endTime={endDate ? (() => {
-                        const d = new Date(endDate);
-                        d.setMinutes(59, 59, 999);
-                        return d.toISOString();
-                    })() : null}
+                    startTime={detailStartTime}
+                    endTime={detailEndTime}
                     hasTimeFilter={!!endDate}
+                    onAuthorSelect={handleAuthorSelect}
                 />
 
                 {/* Word Cloud */}
                 <WordCloudPanel
-                    startTime={startDate ? new Date(startDate).toISOString() : null}
-                    endTime={endDate ? (() => {
-                        const d = new Date(endDate);
-                        d.setMinutes(59, 59, 999);
-                        return d.toISOString();
-                    })() : null}
+                    startTime={detailStartTime}
+                    endTime={detailEndTime}
                     hasTimeFilter={!!endDate}
                 />
 
                 {/* Emoji Stats */}
                 <EmojiStatsPanel
-                    startTime={startDate ? new Date(startDate).toISOString() : null}
-                    endTime={endDate ? (() => {
-                        const d = new Date(endDate);
-                        d.setMinutes(59, 59, 999);
-                        return d.toISOString();
-                    })() : null}
+                    startTime={detailStartTime}
+                    endTime={detailEndTime}
                     hasTimeFilter={!!endDate}
                 />
 
                 {/* Message List */}
                 <MessageList
-                    startTime={startDate ? new Date(startDate).toISOString() : null}
-                    endTime={endDate ? (() => {
-                        const d = new Date(endDate);
-                        d.setMinutes(59, 59, 999);
-                        return d.toISOString();
-                    })() : null}
+                    startTime={detailStartTime}
+                    endTime={detailEndTime}
                     hasTimeFilter={!!endDate}
+                    onAuthorSelect={handleAuthorSelect}
+                />
+
+                <AuthorDetailDrawer
+                    isOpen={isAuthorDrawerOpen}
+                    onClose={() => setIsAuthorDrawerOpen(false)}
+                    authorId={selectedAuthorId}
+                    initialStartTime={detailStartTime}
+                    initialEndTime={detailEndTime}
                 />
             </div>
         </div>

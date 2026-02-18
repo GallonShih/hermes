@@ -27,14 +27,13 @@ const AuthorStatsPanel = ({
     authorFilter,
     messageFilter,
     paidMessageFilter,
-    hasTimeFilter = false
+    hasTimeFilter = false,
+    onAuthorSelect
 }) => {
     const [topAuthors, setTopAuthors] = useState([]);
     const [totalAuthors, setTotalAuthors] = useState(0);
     const [displayedAuthors, setDisplayedAuthors] = useState(0);
     const [tieExtended, setTieExtended] = useState(false);
-    const [activeAuthorId, setActiveAuthorId] = useState(null);
-    const [copiedAuthorId, setCopiedAuthorId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -86,13 +85,6 @@ const AuthorStatsPanel = ({
 
         return () => clearInterval(intervalId);
     }, [hasTimeFilter, loadTopAuthors]);
-
-    useEffect(() => {
-        if (activeAuthorId && !topAuthors.some((author) => author.author_id === activeAuthorId)) {
-            setActiveAuthorId(null);
-        }
-        setCopiedAuthorId(null);
-    }, [topAuthors, activeAuthorId]);
 
     // Chart configuration
     const chartData = {
@@ -172,24 +164,6 @@ const AuthorStatsPanel = ({
         Math.max(MIN_CHART_HEIGHT, topAuthors.length * ROW_HEIGHT + CHART_PADDING)
     );
 
-    const toggleAuthorPopover = (authorId) => {
-        setActiveAuthorId((prev) => (prev === authorId ? null : authorId));
-        setCopiedAuthorId(null);
-    };
-
-    const copyAuthorId = async (authorId) => {
-        if (!authorId || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
-        try {
-            await navigator.clipboard.writeText(authorId);
-            setCopiedAuthorId(authorId);
-            setTimeout(() => {
-                setCopiedAuthorId((prev) => (prev === authorId ? null : prev));
-            }, 1500);
-        } catch (err) {
-            console.error('Copy author_id failed:', err);
-        }
-    };
-
     if (error) {
         return (
             <div className="mt-4 p-4 bg-red-50 rounded-lg text-red-600 text-sm">
@@ -227,47 +201,18 @@ const AuthorStatsPanel = ({
             </div>
             {topAuthors.length > 0 && (
                 <div className="mt-3">
-                    <p className="text-xs text-gray-500 mb-2">點擊作者查看並複製 author_id</p>
+                    <p className="text-xs text-gray-500 mb-2">點擊作者查看詳細資訊</p>
                     <div className="flex flex-wrap gap-2">
                         {topAuthors.map((author, index) => (
-                            <div key={`${author.author_id || author.author}-${index}`} className="relative">
+                            <div key={`${author.author_id || author.author}-${index}`}>
                                 <button
                                     type="button"
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleAuthorPopover(author.author_id);
-                                    }}
+                                    onClick={() => onAuthorSelect?.(author.author_id)}
+                                    disabled={!author.author_id}
                                     className="text-xs px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
                                 >
                                     {author.author}
                                 </button>
-                                {activeAuthorId === author.author_id && (
-                                    <div
-                                        onClick={(event) => event.stopPropagation()}
-                                        className="absolute z-20 left-0 mt-2 w-64 max-w-[85vw] rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-[11px] text-gray-500">author_id</div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveAuthorId(null)}
-                                                className="text-[11px] text-gray-400 hover:text-gray-600"
-                                            >
-                                                關閉
-                                            </button>
-                                        </div>
-                                        <div className="mt-1 font-mono text-xs text-gray-700 break-all">
-                                            {author.author_id || 'Unknown'}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => copyAuthorId(author.author_id)}
-                                            className="mt-2 text-xs px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-500"
-                                        >
-                                            {copiedAuthorId === author.author_id ? '已複製' : '複製 ID'}
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         ))}
                     </div>
