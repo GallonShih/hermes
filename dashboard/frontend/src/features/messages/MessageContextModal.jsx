@@ -25,14 +25,16 @@ function MessageContextModal({ isOpen, onClose, targetMessage, startTime, endTim
         setHighlightId(targetMessage.id);
         setLoading(true);
 
-        fetchChatMessages({
-            limit: 1,
-            offset: 0,
-            startTime,
-            endTime: targetMessage.time,
-        })
-            .then(({ total: countBefore }) => {
-                const targetPage = Math.max(1, Math.ceil(countBefore / PAGE_SIZE));
+        // Fetch in parallel: messages up-to-target (N) and total in full range (M).
+        // Messages are ordered DESC (newest first), so the target sits at position
+        // (M - N) from the top. Page = floor((M-N) / PAGE_SIZE) + 1.
+        Promise.all([
+            fetchChatMessages({ limit: 1, offset: 0, startTime, endTime: targetMessage.time }),
+            fetchChatMessages({ limit: 1, offset: 0, startTime, endTime }),
+        ])
+            .then(([{ total: countUpTo }, { total: totalInRange }]) => {
+                const messagesAfterTarget = totalInRange - countUpTo;
+                const targetPage = Math.max(1, Math.floor(messagesAfterTarget / PAGE_SIZE) + 1);
                 initialPageRef.current = targetPage;
                 setPage(targetPage);
                 return fetchChatMessages({
