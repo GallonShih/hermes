@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -413,5 +413,107 @@ describe('IncenseMapPage', () => {
         const map = screen.getByTestId('taiwan-map');
         expect(map.querySelector('[data-region="台中"]')).toBeInTheDocument();
         expect(map.querySelector('[data-region="南部"]')).not.toBeInTheDocument();
+    });
+
+    // ── 品牌管理 ─────────────────────────────────────────────────────────
+
+    test('map tab shows default brand tags and add-brand button', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+
+        expect(screen.getByText('逆水寒')).toBeInTheDocument();
+        expect(screen.getByText('傳說對決')).toBeInTheDocument();
+        expect(screen.getByText('格力變頻空調')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /新增品牌/ })).toBeInTheDocument();
+        // Modal 預設不顯示
+        expect(screen.queryByTestId('brand-modal')).not.toBeInTheDocument();
+    });
+
+    test('clicking 新增品牌 opens modal with input', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+        await user.click(screen.getByRole('button', { name: /新增品牌/ }));
+
+        expect(screen.getByTestId('brand-modal')).toBeInTheDocument();
+        expect(screen.getByLabelText('品牌名稱')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '確認新增' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument();
+    });
+
+    test('can add a new brand via modal', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+        await user.click(screen.getByRole('button', { name: /新增品牌/ }));
+
+        const input = screen.getByLabelText('品牌名稱');
+        fireEvent.change(input, { target: { value: 'TestBrand' } });
+        expect(screen.getByRole('button', { name: '確認新增' })).toBeEnabled();
+
+        await user.click(screen.getByRole('button', { name: '確認新增' }));
+
+        // Modal 關閉，品牌已新增
+        await waitFor(() => expect(screen.queryByTestId('brand-modal')).not.toBeInTheDocument());
+        expect(screen.getByText('TestBrand')).toBeInTheDocument();
+    });
+
+    test('modal shows error for duplicate brand', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+        await user.click(screen.getByRole('button', { name: /新增品牌/ }));
+
+        const input = screen.getByLabelText('品牌名稱');
+        fireEvent.change(input, { target: { value: '逆水寒' } });
+        await user.click(screen.getByRole('button', { name: '確認新增' }));
+
+        // Modal 仍開啟，顯示錯誤
+        expect(screen.getByTestId('brand-modal')).toBeInTheDocument();
+        expect(screen.getByText('此品牌已存在')).toBeInTheDocument();
+    });
+
+    test('modal can be closed via cancel button', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+        await user.click(screen.getByRole('button', { name: /新增品牌/ }));
+
+        expect(screen.getByTestId('brand-modal')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: '取消' }));
+
+        expect(screen.queryByTestId('brand-modal')).not.toBeInTheDocument();
+    });
+
+    test('can remove a brand', async () => {
+        const user = userEvent.setup();
+        fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
+        renderPage();
+        await waitFor(() => expect(screen.getByText('台中')).toBeInTheDocument());
+
+        await user.click(screen.getByRole('button', { name: '地圖' }));
+
+        expect(screen.getByText('逆水寒')).toBeInTheDocument();
+
+        await user.click(screen.getByLabelText('移除品牌 逆水寒'));
+
+        expect(screen.queryByText('逆水寒')).not.toBeInTheDocument();
     });
 });

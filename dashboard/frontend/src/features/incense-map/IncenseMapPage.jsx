@@ -1,16 +1,15 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchIncenseCandidates } from '../../api/incenseMap';
 import Navigation from '../../components/common/Navigation';
 import TaiwanMap from './TaiwanMap';
 import { REGION_NAMES } from './useTaiwanMap';
 
-/** 非地理區域的上香對象（遊戲/品牌），logo 可稍後替換為實際圖片 URL */
-const BRANDS = [
+/** 非地理區域的上香對象（遊戲/品牌）預設清單 */
+const DEFAULT_BRANDS = [
     { name: '逆水寒', logo: null },
     { name: '傳說對決', logo: null },
     { name: '格力變頻空調', logo: null },
 ];
-const BRAND_NAMES = new Set(BRANDS.map((b) => b.name));
 
 // 對一組 candidates 套用單一 mapping，回傳合併後的新 candidates
 function applyOneMapping(candidates, map) {
@@ -27,6 +26,23 @@ function applyOneMapping(candidates, map) {
     }));
 }
 
+// 將 PageShell 提取到組件外部，避免每次 re-render 重建 function reference 導致子樹 unmount
+function PageShell({ children }) {
+    return (
+        <div className="min-h-screen font-sans text-gray-900">
+            <div className="max-w-7xl mx-auto p-4 md:p-8">
+                <header className="flex justify-between items-center mb-6 relative">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">
+                        地區上香分布
+                    </h1>
+                    <Navigation />
+                </header>
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export default function IncenseMapPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -41,6 +57,48 @@ export default function IncenseMapPage() {
     const [mappingError, setMappingError] = useState('');
     const [activeTab, setActiveTab] = useState('table');
     const fileInputRef = useRef(null);
+
+    // 動態品牌清單
+    const [brands, setBrands] = useState(DEFAULT_BRANDS);
+    const brandNames = useMemo(() => new Set(brands.map((b) => b.name)), [brands]);
+
+    // 新增品牌 Modal
+    const [showBrandModal, setShowBrandModal] = useState(false);
+    const [brandModalInput, setBrandModalInput] = useState('');
+    const [brandModalError, setBrandModalError] = useState('');
+    const brandModalInputRef = useRef(null);
+
+    const openBrandModal = useCallback(() => {
+        setBrandModalInput('');
+        setBrandModalError('');
+        setShowBrandModal(true);
+        // 延遲 focus 讓 modal 渲染後再取得焦點
+        setTimeout(() => brandModalInputRef.current?.focus(), 50);
+    }, []);
+
+    const closeBrandModal = useCallback(() => {
+        setShowBrandModal(false);
+        setBrandModalInput('');
+        setBrandModalError('');
+    }, []);
+
+    const confirmAddBrand = useCallback(() => {
+        const name = brandModalInput.trim();
+        if (!name) {
+            setBrandModalError('請輸入品牌名稱');
+            return;
+        }
+        if (brands.some((b) => b.name === name)) {
+            setBrandModalError('此品牌已存在');
+            return;
+        }
+        setBrands((prev) => [...prev, { name, logo: null }]);
+        closeBrandModal();
+    }, [brandModalInput, brands, closeBrandModal]);
+
+    const removeBrand = useCallback((name) => {
+        setBrands((prev) => prev.filter((b) => b.name !== name));
+    }, []);
 
     const load = (start, end) => {
         setLoading(true);
@@ -99,12 +157,12 @@ export default function IncenseMapPage() {
         const result = {};
         for (const { word, count, percentage } of mappedCandidates) {
             const normalized = word.replace(/臺/g, '台');
-            if (REGION_NAMES.has(normalized) || BRAND_NAMES.has(normalized)) {
+            if (REGION_NAMES.has(normalized) || brandNames.has(normalized)) {
                 result[normalized] = { count, percentage };
             }
         }
         return result;
-    }, [mappedCandidates]);
+    }, [mappedCandidates, brandNames]);
 
     const sorted = useMemo(() => {
         let list = mappedCandidates.filter(c =>
@@ -134,24 +192,10 @@ export default function IncenseMapPage() {
         else { setSortKey(key); setSortAsc(false); }
     };
 
-    const SortIcon = ({ col }) => {
-        if (sortKey !== col) return <span className="text-gray-300 ml-1">↕</span>;
-        return <span className="ml-1">{sortAsc ? '↑' : '↓'}</span>;
+    const sortIcon = (col) => {
+        if (sortKey !== col) return '↕';
+        return sortAsc ? '↑' : '↓';
     };
-
-    const PageShell = ({ children }) => (
-        <div className="min-h-screen font-sans text-gray-900">
-            <div className="max-w-7xl mx-auto p-4 md:p-8">
-                <header className="flex justify-between items-center mb-6 relative">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">
-                        地區上香分布
-                    </h1>
-                    <Navigation />
-                </header>
-                {children}
-            </div>
-        </div>
-    );
 
     if (loading) return (
         <PageShell>
@@ -290,7 +334,76 @@ export default function IncenseMapPage() {
 
             {/* 地圖 Tab */}
             {activeTab === 'map' && (
-                <TaiwanMap regionData={regionData} brands={BRANDS} />
+                <>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-sm text-white/70">品牌卡片：</span>
+                    {brands.map((b) => (
+                        <span
+                            key={b.name}
+                            className="inline-flex items-center gap-1 bg-white/10 text-white text-xs px-2 py-1 rounded-full"
+                        >
+                            {b.name}
+                            <button
+                                onClick={() => removeBrand(b.name)}
+                                className="ml-0.5 text-white/50 hover:text-red-300 leading-none"
+                                aria-label={`移除品牌 ${b.name}`}
+                            >
+                                ×
+                            </button>
+                        </span>
+                    ))}
+                    <button
+                        onClick={openBrandModal}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-indigo-600/80 text-white hover:bg-indigo-500 transition-colors"
+                    >
+                        ＋ 新增品牌
+                    </button>
+                </div>
+
+                <TaiwanMap regionData={regionData} brands={brands} />
+                </>
+            )}
+
+            {/* 新增品牌 Modal — 獨立於地圖渲染，避免 modal state 導致地圖重繪 */}
+            {showBrandModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                    onClick={(e) => { if (e.target === e.currentTarget) closeBrandModal(); }}
+                    data-testid="brand-modal-overlay"
+                >
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" data-testid="brand-modal">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">新增品牌</h3>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">品牌名稱</label>
+                        <input
+                            ref={brandModalInputRef}
+                            type="text"
+                            value={brandModalInput}
+                            onChange={(e) => { setBrandModalInput(e.target.value); setBrandModalError(''); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddBrand(); } }}
+                            placeholder="例如：原神、星穹鐵道..."
+                            className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+                            aria-label="品牌名稱"
+                        />
+                        {brandModalError && (
+                            <p className="text-xs text-red-500 mt-1">{brandModalError}</p>
+                        )}
+                        <div className="flex justify-end gap-2 mt-5">
+                            <button
+                                onClick={closeBrandModal}
+                                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={confirmAddBrand}
+                                disabled={!brandModalInput.trim()}
+                                className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                確認新增
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* 表格 Tab */}
@@ -324,19 +437,19 @@ export default function IncenseMapPage() {
                                 className="px-4 py-3 text-left cursor-pointer hover:text-indigo-600 select-none"
                                 onClick={() => handleSort('word')}
                             >
-                                詞彙 <SortIcon col="word" />
+                                詞彙 <span className="ml-1">{sortIcon('word')}</span>
                             </th>
                             <th
                                 className="px-4 py-3 text-right cursor-pointer hover:text-indigo-600 select-none"
                                 onClick={() => handleSort('count')}
                             >
-                                次數 <SortIcon col="count" />
+                                次數 <span className="ml-1">{sortIcon('count')}</span>
                             </th>
                             <th
                                 className="px-4 py-3 text-right cursor-pointer hover:text-indigo-600 select-none"
                                 onClick={() => handleSort('percentage')}
                             >
-                                比例 <SortIcon col="percentage" />
+                                比例 <span className="ml-1">{sortIcon('percentage')}</span>
                             </th>
                         </tr>
                     </thead>

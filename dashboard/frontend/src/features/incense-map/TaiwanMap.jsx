@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, memo } from 'react';
 import { geoMercator, geoPath, geoArea, scaleLinear } from 'd3';
 import useTaiwanMap from './useTaiwanMap';
 
@@ -102,7 +102,7 @@ function keepLargestPolygons(feature, n) {
  * 單一離島放大圖 (Inset Map) — 可自由拖曳。
  * 使用獨立投影，參考 docs/taiwan_geo_demo.html 的 createInset。
  */
-function InsetMap({ feature: ft, label, width, height, topN, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
+const InsetMap = memo(function InsetMap({ feature: ft, label, width, height, topN, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
     const labelHeight = 22;
     const svgHeight = height - labelHeight;
 
@@ -139,6 +139,11 @@ function InsetMap({ feature: ft, label, width, height, topN, x, y, containerRef,
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
+            onMouseMove={(e) => {
+                if (!dragging.current)
+                    onTooltip({ x: e.clientX, y: e.clientY, name, data });
+            }}
+            onMouseLeave={() => onTooltip(null)}
         >
             <div className="text-[11px] font-semibold text-white/60 px-2 pt-1 pb-0 leading-tight pointer-events-none"
                  style={{ height: labelHeight }}>
@@ -157,13 +162,13 @@ function InsetMap({ feature: ft, label, width, height, topN, x, y, containerRef,
             </svg>
         </div>
     );
-}
+});
 
 /**
  * 品牌/遊戲卡片 — 非地理區域的上香對象，用色階深淺表示數值。
  * 可在地圖容器內自由拖曳。
  */
-function BrandCard({ name, logo, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
+const BrandCard = memo(function BrandCard({ name, logo, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
     const data = regionData[name];
     const bgColor = data ? colorScale(data.count) : '#e5e7eb';
     const textColor = data && data.count > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)';
@@ -214,9 +219,49 @@ function BrandCard({ name, logo, x, y, containerRef, onDrop, regionData, colorSc
             </span>
         </div>
     );
-}
+});
 
-export default function TaiwanMap({ regionData, brands = [] }) {
+/**
+ * 主地圖 SVG（本島 + 澎湖）— memo 避免 brands 變動導致地圖路徑重繪。
+ */
+const MainMapSvg = memo(function MainMapSvg({ mainFeatures, pathGen, regionData, colorScale, scale, onTooltip }) {
+    return (
+        <svg
+            width="100%"
+            viewBox={`0 0 ${MAIN_WIDTH} ${MAIN_HEIGHT}`}
+            style={{
+                display: 'block',
+                maxHeight: `${scale}vh`,
+                width: 'auto',
+                margin: '0 auto',
+            }}
+        >
+            {mainFeatures.map((feat) => {
+                const name = feat.properties.COUNTYNAME;
+                const data = regionData[name];
+                const fill = data ? colorScale(data.count) : '#e5e7eb';
+                return (
+                    <path
+                        key={name}
+                        d={pathGen?.(feat) ?? ''}
+                        fill={fill}
+                        stroke="rgba(255,255,255,0.8)"
+                        strokeWidth={1.2}
+                        style={{ transition: 'fill 0.2s', cursor: 'pointer' }}
+                        data-region={name}
+                        data-count={data?.count ?? 0}
+                        onMouseMove={(e) =>
+                            onTooltip({ x: e.clientX, y: e.clientY, name, data })
+                        }
+                        onMouseLeave={() => onTooltip(null)}
+                    />
+                );
+            })}
+        </svg>
+    );
+});
+
+export default memo(function TaiwanMap({ regionData, brands = [] }) {
     const { features, loading, error } = useTaiwanMap();
     const [tooltip, setTooltip] = useState(null);
     const [scale, setScale] = useState(60);
@@ -225,18 +270,47 @@ export default function TaiwanMap({ regionData, brands = [] }) {
     // 所有可拖曳元素的位置（inset + brand），統一管理
     const [positions, setPositions] = useState(() => {
         const pos = {};
-        // Inset 預設位置：左上角垂直排列
         let iy = 12;
         for (const ins of INSETS) {
             pos[`inset-${ins.name}`] = { x: 12, y: iy };
             iy += ins.height + 8;
         }
-        // Brand 預設位置：左側 inset 下方
         brands.forEach((b, i) => {
             pos[`brand-${b.name}`] = { x: 12 + (i % 3) * 96, y: iy + Math.floor(i / 3) * 96 };
         });
         return pos;
     });
+
+    // 新增品牌時自動分配預設位置，而非重建整個 state
+    const prevBrandCountRef = useRef(brands.length);
+    if (brands.length !== prevBrandCountRef.current) {
+        const newPositions = { ...positions };
+        let needsUpdate = false;
+        // Inset 底部偏移
+        let baseY = 12;
+        for (const ins of INSETS) {
+            baseY += ins.height + 8;
+        }
+        brands.forEach((b, i) => {
+            const key = `brand-${b.name}`;
+            if (!newPositions[key]) {
+                newPositions[key] = { x: 12 + (i % 3) * 96, y: baseY + Math.floor(i / 3) * 96 };
+                needsUpdate = true;
+            }
+        });
+        // 清理已刪除品牌的位置
+        const brandKeys = new Set(brands.map((b) => `brand-${b.name}`));
+        for (const key of Object.keys(newPositions)) {
+            if (key.startsWith('brand-') && !brandKeys.has(key)) {
+                delete newPositions[key];
+                needsUpdate = true;
+            }
+        }
+        if (needsUpdate) {
+            setPositions(newPositions);
+        }
+        prevBrandCountRef.current = brands.length;
+    }
 
     const onItemDrop = useCallback((key, x, y) => {
         setPositions((prev) => ({ ...prev, [key]: { x, y } }));
@@ -336,39 +410,15 @@ export default function TaiwanMap({ regionData, brands = [] }) {
 
             {/* Main map container with insets overlaid */}
             <div ref={mapContainerRef} className="relative glass-card rounded-2xl overflow-hidden">
-                {/* Main SVG (本島 + 澎湖) */}
-                <svg
-                    width="100%"
-                    viewBox={`0 0 ${MAIN_WIDTH} ${MAIN_HEIGHT}`}
-                    style={{
-                        display: 'block',
-                        maxHeight: `${scale}vh`,
-                        width: 'auto',
-                        margin: '0 auto',
-                    }}
-                >
-                    {mainFeatures.map((feat) => {
-                        const name = feat.properties.COUNTYNAME;
-                        const data = regionData[name];
-                        const fill = data ? colorScale(data.count) : '#e5e7eb';
-                        return (
-                            <path
-                                key={name}
-                                d={pathGen?.(feat) ?? ''}
-                                fill={fill}
-                                stroke="rgba(255,255,255,0.8)"
-                                strokeWidth={1.2}
-                                style={{ transition: 'fill 0.2s', cursor: 'pointer' }}
-                                data-region={name}
-                                data-count={data?.count ?? 0}
-                                onMouseMove={(e) =>
-                                    setTooltip({ x: e.clientX, y: e.clientY, name, data })
-                                }
-                                onMouseLeave={() => setTooltip(null)}
-                            />
-                        );
-                    })}
-                </svg>
+                {/* Main SVG (本島 + 澎湖) — memo 化避免品牌變動時重繪 */}
+                <MainMapSvg
+                    mainFeatures={mainFeatures}
+                    pathGen={pathGen}
+                    regionData={regionData}
+                    colorScale={colorScale}
+                    scale={scale}
+                    onTooltip={handleTooltip}
+                />
 
                 {/* Draggable inset maps */}
                 {insetFeatures.map(({ name, label, width, height, topN, feature: ft }) => {
@@ -445,4 +495,4 @@ export default function TaiwanMap({ regionData, brands = [] }) {
             )}
         </div>
     );
-}
+});
