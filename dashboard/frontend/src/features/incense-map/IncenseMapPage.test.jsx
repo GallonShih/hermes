@@ -27,7 +27,7 @@ vi.mock('./TaiwanMap', () => ({
                 <span key={name} data-region={name} data-count={d.count} />
             ))}
             {(countries || []).map((c) => (
-                <span key={c.name} data-testid={`map-country-${c.name}`} />
+                <span key={c.name} data-testid={`map-country-${c.name}`} data-label={c.label} data-matchkey={c.matchKey} />
             ))}
         </div>
     ),
@@ -35,13 +35,16 @@ vi.mock('./TaiwanMap', () => ({
 
 // Mock useWorldCountries to avoid network calls
 vi.mock('./useWorldCountries', () => ({
-    default: vi.fn(() => ({ countryFeatures: [], loading: false, error: null })),
-    COUNTRY_NAME_MAP: {
-        日本: { code: '392', en: 'Japan' },
-        韓國: { code: '410', en: 'South Korea' },
-        美國: { code: '840', en: 'United States of America' },
-    },
-    COUNTRY_OPTIONS: ['日本', '美國', '韓國'],
+    default: vi.fn(() => ({
+        allCountries: [
+            { id: '392', en: 'Japan' },
+            { id: '410', en: 'South Korea' },
+            { id: '840', en: 'United States of America' },
+        ],
+        countryFeatures: [],
+        loading: false,
+        error: null,
+    })),
 }));
 
 const MOCK_DATA = {
@@ -545,7 +548,7 @@ describe('IncenseMapPage', () => {
         expect(screen.queryByTestId('country-modal')).not.toBeInTheDocument();
     });
 
-    test('clicking 新增國家 opens modal with select', async () => {
+    test('clicking 新增國家 opens modal with select and input fields', async () => {
         const user = userEvent.setup();
         fetchIncenseCandidates.mockResolvedValue(MOCK_DATA);
         renderPage();
@@ -556,6 +559,8 @@ describe('IncenseMapPage', () => {
 
         expect(screen.getByTestId('country-modal')).toBeInTheDocument();
         expect(screen.getByLabelText('國家名稱')).toBeInTheDocument();
+        expect(screen.getByLabelText('顯示名稱')).toBeInTheDocument();
+        expect(screen.getByLabelText('匹配名稱')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: '確認新增' })).toBeDisabled();
     });
 
@@ -569,12 +574,22 @@ describe('IncenseMapPage', () => {
         await user.click(screen.getByRole('button', { name: /新增國家/ }));
 
         const select = screen.getByLabelText('國家名稱');
-        fireEvent.change(select, { target: { value: '日本' } });
+        fireEvent.change(select, { target: { value: 'Japan' } });
+
+        // 修改顯示名稱為中文
+        const labelInput = screen.getByLabelText('顯示名稱');
+        await user.clear(labelInput);
+        await user.type(labelInput, '日本');
+
+        // 修改匹配名稱
+        const matchKeyInput = screen.getByLabelText('匹配名稱');
+        await user.clear(matchKeyInput);
+        await user.type(matchKeyInput, '日本');
 
         await user.click(screen.getByRole('button', { name: '確認新增' }));
 
         await waitFor(() => expect(screen.queryByTestId('country-modal')).not.toBeInTheDocument());
-        // 國家標籤出現在地圖 tab 中
+        // 國家標籤顯示 label
         expect(screen.getByText('日本')).toBeInTheDocument();
     });
 
@@ -586,15 +601,15 @@ describe('IncenseMapPage', () => {
 
         await user.click(screen.getByRole('button', { name: '地圖' }));
 
-        // 先新增日本
+        // 先新增 Japan
         await user.click(screen.getByRole('button', { name: /新增國家/ }));
-        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: '日本' } });
+        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: 'Japan' } });
         await user.click(screen.getByRole('button', { name: '確認新增' }));
         await waitFor(() => expect(screen.queryByTestId('country-modal')).not.toBeInTheDocument());
 
-        // 再次新增日本
+        // 再次新增 Japan
         await user.click(screen.getByRole('button', { name: /新增國家/ }));
-        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: '日本' } });
+        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: 'Japan' } });
         await user.click(screen.getByRole('button', { name: '確認新增' }));
 
         expect(screen.getByTestId('country-modal')).toBeInTheDocument();
@@ -609,15 +624,15 @@ describe('IncenseMapPage', () => {
 
         await user.click(screen.getByRole('button', { name: '地圖' }));
 
-        // 新增日本
+        // 新增 Japan（label 預設是英文名）
         await user.click(screen.getByRole('button', { name: /新增國家/ }));
-        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: '日本' } });
+        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: 'Japan' } });
         await user.click(screen.getByRole('button', { name: '確認新增' }));
-        await waitFor(() => expect(screen.getByText('日本')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Japan')).toBeInTheDocument());
 
-        // 移除日本
-        await user.click(screen.getByLabelText('移除國家 日本'));
-        expect(screen.queryByText('日本')).not.toBeInTheDocument();
+        // 移除 Japan（aria-label 使用 label 顯示）
+        await user.click(screen.getByLabelText('移除國家 Japan'));
+        expect(screen.queryByText('Japan')).not.toBeInTheDocument();
     });
 
     test('country modal can be closed via cancel', async () => {
@@ -642,11 +657,11 @@ describe('IncenseMapPage', () => {
 
         await user.click(screen.getByRole('button', { name: '地圖' }));
 
-        // 新增韓國
+        // 新增 South Korea
         await user.click(screen.getByRole('button', { name: /新增國家/ }));
-        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: '韓國' } });
+        fireEvent.change(screen.getByLabelText('國家名稱'), { target: { value: 'South Korea' } });
         await user.click(screen.getByRole('button', { name: '確認新增' }));
 
-        await waitFor(() => expect(screen.getByTestId('map-country-韓國')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByTestId('map-country-South Korea')).toBeInTheDocument());
     });
 });

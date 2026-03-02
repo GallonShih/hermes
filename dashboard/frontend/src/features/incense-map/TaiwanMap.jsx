@@ -227,7 +227,7 @@ const BrandCard = memo(function BrandCard({ name, logo, x, y, containerRef, onDr
  * 國家放大圖 (Country Inset) — 用 world-atlas 的 GeoJSON 渲染單一國家輪廓。
  * 可在地圖容器內自由拖曳，與離島 InsetMap 共用相同互動模式。
  */
-const CountryInset = memo(function CountryInset({ name, feature: ft, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
+const CountryInset = memo(function CountryInset({ name, label, matchKey, feature: ft, x, y, containerRef, onDrop, regionData, colorScale, onTooltip }) {
     const { width, height } = COUNTRY_INSET_SIZE;
     const labelHeight = 22;
     const svgHeight = height - labelHeight;
@@ -248,7 +248,9 @@ const CountryInset = memo(function CountryInset({ name, feature: ft, x, y, conta
 
     if (!ft || !pathGen) return null;
 
-    const data = regionData[name];
+    const displayLabel = label || name;
+    const dataKey = matchKey || name;
+    const data = regionData[dataKey];
     const fill = data ? colorScale(data.count) : '#e5e7eb';
 
     return (
@@ -262,13 +264,13 @@ const CountryInset = memo(function CountryInset({ name, feature: ft, x, y, conta
             onPointerUp={onPointerUp}
             onMouseMove={(e) => {
                 if (!dragging.current)
-                    onTooltip({ x: e.clientX, y: e.clientY, name, data });
+                    onTooltip({ x: e.clientX, y: e.clientY, name: displayLabel, data });
             }}
             onMouseLeave={() => onTooltip(null)}
         >
             <div className="text-[11px] font-semibold text-white/60 px-2 pt-1 pb-0 leading-tight pointer-events-none"
                  style={{ height: labelHeight }}>
-                {name}
+                {displayLabel}
             </div>
             <svg width={width} height={svgHeight} style={{ display: 'block' }} className="pointer-events-none">
                 <path
@@ -277,7 +279,7 @@ const CountryInset = memo(function CountryInset({ name, feature: ft, x, y, conta
                     stroke="rgba(255,255,255,0.8)"
                     strokeWidth={1.2}
                     style={{ cursor: 'pointer', transition: 'fill 0.2s' }}
-                    data-region={name}
+                    data-region={dataKey}
                     data-count={data?.count ?? 0}
                 />
             </svg>
@@ -327,8 +329,7 @@ const MainMapSvg = memo(function MainMapSvg({ mainFeatures, pathGen, regionData,
 
 export default memo(function TaiwanMap({ regionData, brands = [], countries = [] }) {
     const { features, loading, error } = useTaiwanMap();
-    const countryNames = useMemo(() => countries.map((c) => c.name), [countries]);
-    const { countryFeatures } = useWorldCountries(countryNames);
+    const { countryFeatures } = useWorldCountries(countries);
     const [tooltip, setTooltip] = useState(null);
     const [scale, setScale] = useState(60);
     const mapContainerRef = useRef(null);
@@ -559,12 +560,14 @@ export default memo(function TaiwanMap({ regionData, brands = [], countries = []
                 })}
 
                 {/* Draggable country inset maps */}
-                {countryFeatures.map(({ name, feature: ft }) => {
+                {countryFeatures.map(({ name, label, matchKey, feature: ft }) => {
                     const pos = positions[`country-${name}`] ?? { x: MAIN_WIDTH - COUNTRY_INSET_SIZE.width - 12, y: 12 };
                     return (
                         <CountryInset
                             key={name}
                             name={name}
+                            label={label}
+                            matchKey={matchKey}
                             feature={ft}
                             x={pos.x}
                             y={pos.y}

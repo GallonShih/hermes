@@ -3,7 +3,7 @@ import { fetchIncenseCandidates } from '../../api/incenseMap';
 import Navigation from '../../components/common/Navigation';
 import TaiwanMap from './TaiwanMap';
 import { REGION_NAMES } from './useTaiwanMap';
-import { COUNTRY_NAME_MAP, COUNTRY_OPTIONS } from './useWorldCountries';
+import useWorldCountries from './useWorldCountries';
 
 /** 非地理區域的上香對象（遊戲/品牌）預設清單 */
 const DEFAULT_BRANDS = [
@@ -69,13 +69,18 @@ export default function IncenseMapPage() {
     const [brandModalError, setBrandModalError] = useState('');
     const brandModalInputRef = useRef(null);
 
-    // 動態國家清單
+    // 動態國家清單 — 每個國家有 { name (英文), label (顯示), matchKey (匹配) }
     const [countries, setCountries] = useState([]);
-    const countryNames = useMemo(() => new Set(countries.map((c) => c.name)), [countries]);
+    const countryMatchKeys = useMemo(() => new Set(countries.map((c) => c.matchKey)), [countries]);
+
+    // 從 world-atlas 動態載入所有國家清單
+    const { allCountries } = useWorldCountries(countries);
 
     // 新增國家 Modal
     const [showCountryModal, setShowCountryModal] = useState(false);
-    const [countryModalInput, setCountryModalInput] = useState('');
+    const [countryModalName, setCountryModalName] = useState('');
+    const [countryModalLabel, setCountryModalLabel] = useState('');
+    const [countryModalMatchKey, setCountryModalMatchKey] = useState('');
     const [countryModalError, setCountryModalError] = useState('');
 
     const openBrandModal = useCallback(() => {
@@ -93,34 +98,36 @@ export default function IncenseMapPage() {
     }, []);
 
     const openCountryModal = useCallback(() => {
-        setCountryModalInput('');
+        setCountryModalName('');
+        setCountryModalLabel('');
+        setCountryModalMatchKey('');
         setCountryModalError('');
         setShowCountryModal(true);
     }, []);
 
     const closeCountryModal = useCallback(() => {
         setShowCountryModal(false);
-        setCountryModalInput('');
+        setCountryModalName('');
+        setCountryModalLabel('');
+        setCountryModalMatchKey('');
         setCountryModalError('');
     }, []);
 
     const confirmAddCountry = useCallback(() => {
-        const name = countryModalInput.trim();
+        const name = countryModalName.trim();
         if (!name) {
-            setCountryModalError('請選擇或輸入國家名稱');
-            return;
-        }
-        if (!COUNTRY_NAME_MAP[name]) {
-            setCountryModalError('不支援的國家名稱，請從下拉選單選擇');
+            setCountryModalError('請選擇國家');
             return;
         }
         if (countries.some((c) => c.name === name)) {
             setCountryModalError('此國家已存在');
             return;
         }
-        setCountries((prev) => [...prev, { name }]);
+        const label = countryModalLabel.trim() || name;
+        const matchKey = countryModalMatchKey.trim() || name;
+        setCountries((prev) => [...prev, { name, label, matchKey }]);
         closeCountryModal();
-    }, [countryModalInput, countries, closeCountryModal]);
+    }, [countryModalName, countryModalLabel, countryModalMatchKey, countries, closeCountryModal]);
 
     const removeCountry = useCallback((name) => {
         setCountries((prev) => prev.filter((c) => c.name !== name));
@@ -201,12 +208,12 @@ export default function IncenseMapPage() {
         const result = {};
         for (const { word, count, percentage } of mappedCandidates) {
             const normalized = word.replace(/臺/g, '台');
-            if (REGION_NAMES.has(normalized) || brandNames.has(normalized) || countryNames.has(normalized)) {
+            if (REGION_NAMES.has(normalized) || brandNames.has(normalized) || countryMatchKeys.has(normalized)) {
                 result[normalized] = { count, percentage };
             }
         }
         return result;
-    }, [mappedCandidates, brandNames, countryNames]);
+    }, [mappedCandidates, brandNames, countryMatchKeys]);
 
     const sorted = useMemo(() => {
         let list = mappedCandidates.filter(c =>
@@ -410,12 +417,13 @@ export default function IncenseMapPage() {
                         <span
                             key={c.name}
                             className="inline-flex items-center gap-1 bg-white/10 text-white text-xs px-2 py-1 rounded-full"
+                            title={`英文: ${c.name} / 匹配: ${c.matchKey}`}
                         >
-                            {c.name}
+                            {c.label}
                             <button
                                 onClick={() => removeCountry(c.name)}
                                 className="ml-0.5 text-white/50 hover:text-red-300 leading-none"
-                                aria-label={`移除國家 ${c.name}`}
+                                aria-label={`移除國家 ${c.label}`}
                             >
                                 ×
                             </button>
@@ -484,18 +492,43 @@ export default function IncenseMapPage() {
                 >
                     <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" data-testid="country-modal">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">新增國家</h3>
-                        <label className="block text-sm font-medium text-gray-600 mb-1">國家名稱</label>
+                        <label className="block text-sm font-medium text-gray-600 mb-1">國家</label>
                         <select
-                            value={countryModalInput}
-                            onChange={(e) => { setCountryModalInput(e.target.value); setCountryModalError(''); }}
+                            value={countryModalName}
+                            onChange={(e) => {
+                                const en = e.target.value;
+                                setCountryModalName(en);
+                                setCountryModalError('');
+                                // 自動填入 label 和 matchKey（使用者仍可手動修改）
+                                if (en && !countryModalLabel) setCountryModalLabel(en);
+                                if (en && !countryModalMatchKey) setCountryModalMatchKey(en);
+                            }}
                             className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                             aria-label="國家名稱"
                         >
                             <option value="">請選擇國家...</option>
-                            {COUNTRY_OPTIONS.map((name) => (
-                                <option key={name} value={name}>{name} ({COUNTRY_NAME_MAP[name].en})</option>
+                            {allCountries.map((c) => (
+                                <option key={c.id} value={c.en}>{c.en}</option>
                             ))}
                         </select>
+                        <label className="block text-sm font-medium text-gray-600 mt-3 mb-1">顯示名稱</label>
+                        <input
+                            type="text"
+                            value={countryModalLabel}
+                            onChange={(e) => setCountryModalLabel(e.target.value)}
+                            placeholder="例如：日本"
+                            className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                            aria-label="顯示名稱"
+                        />
+                        <label className="block text-sm font-medium text-gray-600 mt-3 mb-1">匹配名稱</label>
+                        <input
+                            type="text"
+                            value={countryModalMatchKey}
+                            onChange={(e) => setCountryModalMatchKey(e.target.value)}
+                            placeholder="用來比對上香訊息的名稱"
+                            className="w-full px-3 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                            aria-label="匹配名稱"
+                        />
                         {countryModalError && (
                             <p className="text-xs text-red-500 mt-1">{countryModalError}</p>
                         )}
@@ -508,7 +541,7 @@ export default function IncenseMapPage() {
                             </button>
                             <button
                                 onClick={confirmAddCountry}
-                                disabled={!countryModalInput}
+                                disabled={!countryModalName}
                                 className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                                 確認新增

@@ -44,12 +44,11 @@ vi.mock('./useTaiwanMap', () => ({
 // Mock useWorldCountries hook
 vi.mock('./useWorldCountries', () => ({
     default: vi.fn(() => ({
+        allCountries: [],
         countryFeatures: [],
         loading: false,
         error: null,
     })),
-    COUNTRY_NAME_MAP: {},
-    COUNTRY_OPTIONS: [],
 }));
 
 const REGION_DATA = {
@@ -172,12 +171,13 @@ describe('TaiwanMap', () => {
             geometry: { type: 'Polygon', coordinates: [[[130, 30], [145, 30], [145, 45], [130, 45], [130, 30]]] },
         };
         useWorldCountries.mockReturnValue({
-            countryFeatures: [{ name: '日本', feature: MOCK_JP_FEATURE }],
+            allCountries: [],
+            countryFeatures: [{ name: 'Japan', label: '日本', matchKey: '日本', feature: MOCK_JP_FEATURE }],
             loading: false,
             error: null,
         });
-        render(<TaiwanMap regionData={REGION_DATA} countries={[{ name: '日本' }]} />);
-        expect(screen.getByTestId('country-日本')).toBeInTheDocument();
+        render(<TaiwanMap regionData={REGION_DATA} countries={[{ name: 'Japan', label: '日本', matchKey: '日本' }]} />);
+        expect(screen.getByTestId('country-Japan')).toBeInTheDocument();
         expect(screen.getByText('日本')).toBeInTheDocument();
     });
 
@@ -189,13 +189,14 @@ describe('TaiwanMap', () => {
             geometry: { type: 'Polygon', coordinates: [[[126, 33], [130, 33], [130, 38], [126, 38], [126, 33]]] },
         };
         useWorldCountries.mockReturnValue({
-            countryFeatures: [{ name: '韓國', feature: MOCK_KR_FEATURE }],
+            allCountries: [],
+            countryFeatures: [{ name: 'South Korea', label: '韓國', matchKey: '韓國', feature: MOCK_KR_FEATURE }],
             loading: false,
             error: null,
         });
         const regionDataWithCountry = { ...REGION_DATA, 韓國: { count: 25, percentage: 12.5 } };
-        render(<TaiwanMap regionData={regionDataWithCountry} countries={[{ name: '韓國' }]} />);
-        const countryInset = screen.getByTestId('country-韓國');
+        render(<TaiwanMap regionData={regionDataWithCountry} countries={[{ name: 'South Korea', label: '韓國', matchKey: '韓國' }]} />);
+        const countryInset = screen.getByTestId('country-South Korea');
         fireEvent.mouseMove(countryInset, { clientX: 300, clientY: 100 });
         expect(screen.getByTestId('map-tooltip')).toBeInTheDocument();
         // '韓國' appears in both inset label and tooltip
