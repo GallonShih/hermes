@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { Responsive, useContainerWidth } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -8,23 +8,29 @@ import {
     PauseIcon,
     CloudIcon,
     ClockIcon,
+    FlagIcon,
     ArrowPathIcon,
     ExclamationTriangleIcon,
     TrophyIcon,
     ArrowTrendingUpIcon,
     ChartBarIcon,
+    ViewfinderCircleIcon,
 } from '@heroicons/react/24/outline';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
 import Navigation from '../../components/common/Navigation';
 import DynamicWordCloud from '../../components/common/DynamicWordCloud';
 import BarChartRace from '../../components/common/BarChartRace';
 import DateTimeHourSelector from '../../components/common/DateTimeHourSelector';
+import SegmentedControl from '../../components/common/SegmentedControl';
+import EventMarkerModal from '../dashboard/EventMarkerModal';
 import { formatNumber, formatCurrency, formatTimestamp, formatLocalHour } from '../../utils/formatters';
+import eventMarkerPlugin from '../../utils/eventMarkerPlugin';
 import { usePlayback } from '../../hooks/usePlayback';
 import { useWordlists } from '../../hooks/useWordlists';
 import { useReplacementWordlists } from '../../hooks/useReplacementWordlists';
 import { usePlaybackLayout } from '../../hooks/usePlaybackLayout';
 import { useDefaultStartTime } from '../../hooks/useDefaultStartTime';
+import { useChartAxisMode, CHART_MODES, ROLLING_WINDOW_OPTIONS } from '../../hooks/useChartAxisMode';
 
 registerChartComponents();
 
@@ -59,13 +65,32 @@ function PlaybackPage() {
 
     const { savedWordlists: savedExclusionWordlists, loading: loadingExclusionWordlists } = useWordlists();
     const { savedWordlists: savedReplacementWordlists, loading: loadingReplacementWordlists } = useReplacementWordlists();
-    const { layout, handleLayoutChange, resetLayout } = usePlaybackLayout();
+    const { layout, handleLayoutChange, setChartExpanded, resetLayout } = usePlaybackLayout();
+    const {
+        chartMode, setChartMode,
+        rollingWindowHours, setRollingWindowHours,
+        dynamicYAxis, setDynamicYAxis,
+        getTimeRange, getMaxValues,
+    } = useChartAxisMode();
+
+    // Chart mode options
+    const chartModeOptions = [
+        { value: CHART_MODES.OVERVIEW, label: '全景' },
+        { value: CHART_MODES.GROWING, label: '延伸' },
+        { value: CHART_MODES.ROLLING, label: '推進' },
+        { value: CHART_MODES.ALL, label: '三模式' },
+    ];
 
     // Word cloud config state
+    const [wordcloudEnabled, setWordcloudEnabled] = useState(true);
     const [windowHours, setWindowHours] = useState(4);
     const [wordLimit, setWordLimit] = useState(30);
     const [selectedWordlistId, setSelectedWordlistId] = useState(null);
     const [selectedReplacementWordlistId, setSelectedReplacementWordlistId] = useState(null);
+    const [eventMarkers, setEventMarkers] = useState([]);
+    const [showMarkerModal, setShowMarkerModal] = useState(false);
+    const [showMarkerLabels, setShowMarkerLabels] = useState(true);
+    const [markerOpacity, setMarkerOpacity] = useState(20);
 
     // Refs
     const playIntervalRef = useRef(null);
@@ -125,15 +150,17 @@ function PlaybackPage() {
         if (!startDate || !endDate) return;
 
         await loadSnapshots({ startDate, endDate, stepSeconds });
-        await loadWordcloudSnapshots({
-            startDate,
-            endDate,
-            stepSeconds,
-            windowHours,
-            wordLimit,
-            wordlistId: selectedWordlistId,
-            replacementWordlistId: selectedReplacementWordlistId
-        });
+        if (wordcloudEnabled) {
+            await loadWordcloudSnapshots({
+                startDate,
+                endDate,
+                stepSeconds,
+                windowHours,
+                wordLimit,
+                wordlistId: selectedWordlistId,
+                replacementWordlistId: selectedReplacementWordlistId
+            });
+        }
     };
 
     // Handle playback interval
@@ -245,19 +272,22 @@ function PlaybackPage() {
         ],
     }), [viewerData, hourlyMessageData]);
 
-    // Max values
-    const { maxViewerCount, maxMessageCount } = useMemo(() => {
-        if (!snapshots.length) return { maxViewerCount: 0, maxMessageCount: 0 };
-        const maxV = Math.max(...snapshots.map(s => s.viewer_count || 0));
-        const maxM = Math.max(...snapshots.map(s => s.hourly_messages || 0));
-        return { maxViewerCount: maxV, maxMessageCount: maxM };
-    }, [snapshots]);
+    const modeLabels = {
+        [CHART_MODES.OVERVIEW]: '全景',
+        [CHART_MODES.GROWING]: '延伸',
+        [CHART_MODES.ROLLING]: '推進',
+    };
 
-    // Time range
-    const timeRange = snapshots.length > 0 ? {
-        min: new Date(snapshots[0].timestamp).getTime(),
-        max: new Date(snapshots[snapshots.length - 1].timestamp).getTime()
-    } : { min: undefined, max: undefined };
+    const activeChartModes = useMemo(() => (
+        chartMode === CHART_MODES.ALL
+            ? [CHART_MODES.OVERVIEW, CHART_MODES.GROWING, CHART_MODES.ROLLING]
+            : [chartMode]
+    ), [chartMode]);
+
+    const handleChartModeChange = useCallback((nextMode) => {
+        setChartMode(nextMode);
+        setChartExpanded(nextMode === CHART_MODES.ALL);
+    }, [setChartExpanded, setChartMode]);
 
     // Plugins
     const currentPositionPlugin = useMemo(() => ({
@@ -296,14 +326,27 @@ function PlaybackPage() {
         }
     }), []);
 
-    // Chart options
-    const chartOptions = useMemo(() => ({
+    // Shared chart options factory
+    const buildChartOptions = useCallback(({
+        timeRange,
+        maxViewerCount,
+        maxMessageCount,
+        chartAnimation,
+        eventMarkers,
+        showMarkerLabels,
+        markerOpacity,
+    }) => ({
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'nearest', axis: 'x', intersect: false },
         plugins: {
             legend: { position: 'top' },
             title: { display: true, text: 'Playback Analytics' },
+            eventMarker: {
+                markers: eventMarkers.filter((m) => m.startTime && m.endTime),
+                showLabels: showMarkerLabels,
+                opacity: markerOpacity,
+            },
             tooltip: {
                 enabled: true,
                 callbacks: {
@@ -350,8 +393,55 @@ function PlaybackPage() {
                 ticks: { precision: 0 }
             },
         },
-        animation: false,
-    }), [timeRange, maxViewerCount, maxMessageCount]);
+        animation: chartAnimation,
+    }), []);
+
+    // Per-mode chart configs (single mode or all 3 modes)
+    const chartConfigs = useMemo(() => activeChartModes.map((mode) => {
+        const timeRange = getTimeRange(snapshots, currentSnapshot, stepSeconds, mode, rollingWindowHours);
+        const { maxViewerCount, maxMessageCount } = getMaxValues(
+            snapshots,
+            visibleSnapshots,
+            currentSnapshot,
+            mode,
+            rollingWindowHours,
+            dynamicYAxis
+        );
+        const shouldShowPositionLine = mode !== CHART_MODES.ROLLING;
+        const chartAnimation = mode === CHART_MODES.ROLLING ? { duration: 300 } : false;
+
+        return {
+            mode,
+            label: modeLabels[mode],
+            options: buildChartOptions({
+                timeRange,
+                maxViewerCount,
+                maxMessageCount,
+                chartAnimation,
+                eventMarkers,
+                showMarkerLabels,
+                markerOpacity,
+            }),
+            plugins: shouldShowPositionLine
+                ? [hourGridPlugin, eventMarkerPlugin, currentPositionPlugin]
+                : [hourGridPlugin, eventMarkerPlugin],
+        };
+    }), [
+        activeChartModes,
+        buildChartOptions,
+        currentPositionPlugin,
+        currentSnapshot,
+        dynamicYAxis,
+        getMaxValues,
+        getTimeRange,
+        markerOpacity,
+        rollingWindowHours,
+        showMarkerLabels,
+        snapshots,
+        stepSeconds,
+        eventMarkers,
+        visibleSnapshots,
+    ]);
 
 
     return (
@@ -423,11 +513,30 @@ function PlaybackPage() {
 
                     {/* Word Cloud Settings */}
                     <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-200">
-                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <div className={`p-4 rounded-lg border transition-colors ${wordcloudEnabled ? 'bg-slate-50 border-slate-200' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
                             <div className="flex items-center gap-2 mb-4">
-                                <CloudIcon className="w-6 h-6 text-slate-600" />
-                                <h3 className="text-base font-bold text-slate-700">文字雲進階設定 (下列選項僅影響文字雲顯示)</h3>
+                                <CloudIcon className={`w-6 h-6 ${wordcloudEnabled ? 'text-slate-600' : 'text-gray-400'}`} />
+                                <h3 className={`text-base font-bold ${wordcloudEnabled ? 'text-slate-700' : 'text-gray-400'}`}>文字雲進階設定</h3>
+                                <button
+                                    onClick={() => setWordcloudEnabled(prev => !prev)}
+                                    className={`ml-auto relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                        wordcloudEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                                    }`}
+                                    role="switch"
+                                    aria-checked={wordcloudEnabled}
+                                    aria-label="啟用文字雲"
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                            wordcloudEnabled ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                    />
+                                </button>
+                                <span className={`text-sm ${wordcloudEnabled ? 'text-slate-600' : 'text-gray-400'}`}>
+                                    {wordcloudEnabled ? '已啟用' : '已停用'}
+                                </span>
                             </div>
+                            {wordcloudEnabled && (
                             <div className="grid grid-cols-12 gap-4">
                                 <div className="col-span-12 md:col-span-6 lg:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">統計窗口</label>
@@ -477,6 +586,7 @@ function PlaybackPage() {
                                     <p className="text-xs text-gray-400">* 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙</p>
                                 </div>
                             </div>
+                            )}
                         </div>
                     </div>
 
@@ -596,9 +706,72 @@ function PlaybackPage() {
                                             <span className="text-gray-400 select-none">⋮⋮</span>
                                             <ArrowTrendingUpIcon className="w-5 h-5 text-gray-700" />
                                             <h3 className="text-base font-bold text-gray-800">觀看人數與留言趨勢</h3>
+                                            <div
+                                                className="ml-auto flex items-center gap-2"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                onPointerDown={(e) => e.stopPropagation()}
+                                            >
+                                                <button
+                                                    onClick={() => setShowMarkerModal(true)}
+                                                    className="flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-gray-600 cursor-pointer"
+                                                    title="事件標記"
+                                                >
+                                                    <FlagIcon className="w-3.5 h-3.5" />
+                                                    <span>事件標記</span>
+                                                    {eventMarkers.length > 0 && (
+                                                        <span className="bg-blue-600 text-white text-[10px] rounded-full min-w-4 h-4 px-1 inline-flex items-center justify-center">
+                                                            {eventMarkers.length}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                <SegmentedControl
+                                                    options={chartModeOptions}
+                                                    value={chartMode}
+                                                    onChange={handleChartModeChange}
+                                                    size="sm"
+                                                />
+                                                {(chartMode === CHART_MODES.ROLLING || chartMode === CHART_MODES.ALL) && (
+                                                    <select
+                                                        className="border border-gray-300 rounded-md px-2 py-1 text-xs cursor-pointer"
+                                                        value={rollingWindowHours}
+                                                        onChange={(e) => setRollingWindowHours(Number(e.target.value))}
+                                                    >
+                                                        {ROLLING_WINDOW_OPTIONS.map(opt => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                {chartMode !== CHART_MODES.OVERVIEW && (
+                                                    <button
+                                                        onClick={() => setDynamicYAxis(prev => !prev)}
+                                                        className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md border transition-colors cursor-pointer ${
+                                                            dynamicYAxis
+                                                                ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                                                : 'bg-white border-gray-300 text-gray-500'
+                                                        }`}
+                                                        title={dynamicYAxis ? 'Y 軸：動態縮放' : 'Y 軸：固定範圍'}
+                                                    >
+                                                        <ViewfinderCircleIcon className="w-3.5 h-3.5" />
+                                                        <span>{dynamicYAxis ? '動態 Y' : '固定 Y'}</span>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
-                                            <Chart type='bar' options={chartOptions} data={chartData} plugins={[hourGridPlugin, currentPositionPlugin]} />
+                                            {chartMode === CHART_MODES.ALL ? (
+                                                <div className="h-full grid grid-cols-1 gap-4">
+                                                    {chartConfigs.map((config) => (
+                                                        <div key={config.mode} className="min-h-[300px] rounded-xl border border-gray-200/70 bg-white/40 p-2">
+                                                            <div className="px-1 pb-1 text-xs font-semibold text-gray-600">{config.label}</div>
+                                                            <div className="h-[calc(100%-22px)]">
+                                                                <Chart type='bar' options={config.options} data={chartData} plugins={config.plugins} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <Chart type='bar' options={chartConfigs[0].options} data={chartData} plugins={chartConfigs[0].plugins} />
+                                            )}
                                         </div>
                                     </div>
 
@@ -609,7 +782,7 @@ function PlaybackPage() {
                                             <CloudIcon className="w-5 h-5 text-gray-700" />
                                             <h3 className="text-base font-bold text-gray-800">動態文字雲</h3>
                                             <span className="ml-auto text-xs text-gray-400">
-                                                {currentSnapshot
+                                                {wordcloudEnabled && currentSnapshot
                                                     ? (() => {
                                                         const end = new Date(currentSnapshot.timestamp);
                                                         const start = new Date(end.getTime() - windowHours * 60 * 60 * 1000);
@@ -621,7 +794,13 @@ function PlaybackPage() {
                                             </span>
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
-                                            {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                            {!wordcloudEnabled ? (
+                                                <div className="h-full flex flex-col items-center justify-center bg-gray-50/80 rounded-2xl border border-gray-200 text-gray-400">
+                                                    <CloudIcon className="w-10 h-10 mb-2 opacity-40" />
+                                                    <p className="text-sm">文字雲已停用</p>
+                                                    <p className="text-xs mt-1">可於上方設定區啟用</p>
+                                                </div>
+                                            ) : wordcloudLoading && !wordcloudSnapshots.length ? (
                                                 <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
                                                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                                                     <p className="mt-3 text-gray-500 text-sm">載入中...</p>
@@ -648,7 +827,13 @@ function PlaybackPage() {
                                             <h3 className="text-base font-bold text-gray-800">熱門詞彙排行</h3>
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
-                                            {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                            {!wordcloudEnabled ? (
+                                                <div className="h-full flex flex-col items-center justify-center bg-gray-50/80 rounded-2xl border border-gray-200 text-gray-400">
+                                                    <TrophyIcon className="w-10 h-10 mb-2 opacity-40" />
+                                                    <p className="text-sm">詞彙排行已停用</p>
+                                                    <p className="text-xs mt-1">可於上方設定區啟用</p>
+                                                </div>
+                                            ) : wordcloudLoading && !wordcloudSnapshots.length ? (
                                                 <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
                                                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                                                     <p className="mt-3 text-gray-500 text-sm">載入中...</p>
@@ -669,6 +854,16 @@ function PlaybackPage() {
                                 </Responsive>
                             )}
                         </div>
+                        <EventMarkerModal
+                            isOpen={showMarkerModal}
+                            onClose={() => setShowMarkerModal(false)}
+                            markers={eventMarkers}
+                            setMarkers={setEventMarkers}
+                            showLabels={showMarkerLabels}
+                            opacity={markerOpacity}
+                            setOpacity={setMarkerOpacity}
+                            setShowLabels={setShowMarkerLabels}
+                        />
                     </>
                 )}
             </div>
