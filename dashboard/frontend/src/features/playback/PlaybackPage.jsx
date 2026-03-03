@@ -79,6 +79,7 @@ function PlaybackPage() {
     ];
 
     // Word cloud config state
+    const [wordcloudEnabled, setWordcloudEnabled] = useState(true);
     const [windowHours, setWindowHours] = useState(4);
     const [wordLimit, setWordLimit] = useState(30);
     const [selectedWordlistId, setSelectedWordlistId] = useState(null);
@@ -142,15 +143,17 @@ function PlaybackPage() {
         if (!startDate || !endDate) return;
 
         await loadSnapshots({ startDate, endDate, stepSeconds });
-        await loadWordcloudSnapshots({
-            startDate,
-            endDate,
-            stepSeconds,
-            windowHours,
-            wordLimit,
-            wordlistId: selectedWordlistId,
-            replacementWordlistId: selectedReplacementWordlistId
-        });
+        if (wordcloudEnabled) {
+            await loadWordcloudSnapshots({
+                startDate,
+                endDate,
+                stepSeconds,
+                windowHours,
+                wordLimit,
+                wordlistId: selectedWordlistId,
+                replacementWordlistId: selectedReplacementWordlistId
+            });
+        }
     };
 
     // Handle playback interval
@@ -436,11 +439,30 @@ function PlaybackPage() {
 
                     {/* Word Cloud Settings */}
                     <div className="mt-6 pt-4 border-t-2 border-dashed border-gray-200">
-                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <div className={`p-4 rounded-lg border transition-colors ${wordcloudEnabled ? 'bg-slate-50 border-slate-200' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
                             <div className="flex items-center gap-2 mb-4">
-                                <CloudIcon className="w-6 h-6 text-slate-600" />
-                                <h3 className="text-base font-bold text-slate-700">文字雲進階設定 (下列選項僅影響文字雲顯示)</h3>
+                                <CloudIcon className={`w-6 h-6 ${wordcloudEnabled ? 'text-slate-600' : 'text-gray-400'}`} />
+                                <h3 className={`text-base font-bold ${wordcloudEnabled ? 'text-slate-700' : 'text-gray-400'}`}>文字雲進階設定</h3>
+                                <button
+                                    onClick={() => setWordcloudEnabled(prev => !prev)}
+                                    className={`ml-auto relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                        wordcloudEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                                    }`}
+                                    role="switch"
+                                    aria-checked={wordcloudEnabled}
+                                    aria-label="啟用文字雲"
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                            wordcloudEnabled ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                    />
+                                </button>
+                                <span className={`text-sm ${wordcloudEnabled ? 'text-slate-600' : 'text-gray-400'}`}>
+                                    {wordcloudEnabled ? '已啟用' : '已停用'}
+                                </span>
                             </div>
+                            {wordcloudEnabled && (
                             <div className="grid grid-cols-12 gap-4">
                                 <div className="col-span-12 md:col-span-6 lg:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">統計窗口</label>
@@ -490,6 +512,7 @@ function PlaybackPage() {
                                     <p className="text-xs text-gray-400">* 統計窗口已設為 {windowHours} 小時，將計算每一步驟前 {windowHours} 小時內的熱門詞彙</p>
                                 </div>
                             </div>
+                            )}
                         </div>
                     </div>
 
@@ -659,7 +682,7 @@ function PlaybackPage() {
                                             <CloudIcon className="w-5 h-5 text-gray-700" />
                                             <h3 className="text-base font-bold text-gray-800">動態文字雲</h3>
                                             <span className="ml-auto text-xs text-gray-400">
-                                                {currentSnapshot
+                                                {wordcloudEnabled && currentSnapshot
                                                     ? (() => {
                                                         const end = new Date(currentSnapshot.timestamp);
                                                         const start = new Date(end.getTime() - windowHours * 60 * 60 * 1000);
@@ -671,7 +694,13 @@ function PlaybackPage() {
                                             </span>
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
-                                            {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                            {!wordcloudEnabled ? (
+                                                <div className="h-full flex flex-col items-center justify-center bg-gray-50/80 rounded-2xl border border-gray-200 text-gray-400">
+                                                    <CloudIcon className="w-10 h-10 mb-2 opacity-40" />
+                                                    <p className="text-sm">文字雲已停用</p>
+                                                    <p className="text-xs mt-1">可於上方設定區啟用</p>
+                                                </div>
+                                            ) : wordcloudLoading && !wordcloudSnapshots.length ? (
                                                 <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
                                                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                                                     <p className="mt-3 text-gray-500 text-sm">載入中...</p>
@@ -698,7 +727,13 @@ function PlaybackPage() {
                                             <h3 className="text-base font-bold text-gray-800">熱門詞彙排行</h3>
                                         </div>
                                         <div className="p-4 h-[calc(100%-52px)]">
-                                            {wordcloudLoading && !wordcloudSnapshots.length ? (
+                                            {!wordcloudEnabled ? (
+                                                <div className="h-full flex flex-col items-center justify-center bg-gray-50/80 rounded-2xl border border-gray-200 text-gray-400">
+                                                    <TrophyIcon className="w-10 h-10 mb-2 opacity-40" />
+                                                    <p className="text-sm">詞彙排行已停用</p>
+                                                    <p className="text-xs mt-1">可於上方設定區啟用</p>
+                                                </div>
+                                            ) : wordcloudLoading && !wordcloudSnapshots.length ? (
                                                 <div className="h-full flex flex-col items-center justify-center bg-white/50 rounded-2xl border border-white/30">
                                                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                                                     <p className="mt-3 text-gray-500 text-sm">載入中...</p>
