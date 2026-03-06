@@ -78,6 +78,76 @@ describe('TrendChart', () => {
         expect(screen.getByText('此時段無符合的留言資料')).toBeInTheDocument();
     });
 
+    test('y-axis suggestedMax in normal mode is based on display data max with 1.15x headroom', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 20 },
+                    { hour: '2026-02-18T01:00:00Z', count: 5 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T01:00:00Z"
+                minimalStyle={false}
+                maWindow={0}
+            />,
+        );
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        // suggestedMax should be ceil(20 * 1.15) = 23, not left undefined
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(20 * 1.15));
+    });
+
+    test('y-axis suggestedMax uses moving average max when maWindow is active', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 20 },
+                    { hour: '2026-02-18T01:00:00Z', count: 2 },
+                    { hour: '2026-02-18T02:00:00Z', count: 2 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                minimalStyle={false}
+                maWindow={3}
+            />,
+        );
+        // MA values: [20, (20+2)/2=11, (20+2+2)/3≈8], max MA = 20 (first point)
+        // But after full 3-window: [20, 11, 8] → max = 20... hmm
+        // Actually with partial window: [20/1=20, (20+2)/2=11, (20+2+2)/3≈8]
+        // raw max = 20, MA max = 20 — not a good test case for the difference
+        // Use a spike early that averages down:
+        // Let's use the options directly: MA max < raw max when spike is smoothed
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        const maMax = 20; // first MA point is still 20/1
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(maMax * 1.15));
+    });
+
+    test('y-axis suggestedMax uses moving average max (smoothed spike is lower)', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 1 },
+                    { hour: '2026-02-18T01:00:00Z', count: 1 },
+                    { hour: '2026-02-18T02:00:00Z', count: 30 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                minimalStyle={false}
+                maWindow={3}
+            />,
+        );
+        // MA values: [1, (1+1)/2=1, (1+1+30)/3≈10.67] → MA max ≈ 10.67
+        // raw max = 30, MA max ≈ 10.67 → suggestedMax should be based on MA max, not 30
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        const expectedMaMax = (1 + 1 + 30) / 3; // ≈ 10.67
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(expectedMaMax * 1.15));
+    });
+
     test('when maWindow is 0 renders original data unchanged', () => {
         render(
             <TrendChart

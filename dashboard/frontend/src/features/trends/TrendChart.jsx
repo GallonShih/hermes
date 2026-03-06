@@ -150,7 +150,7 @@ const TrendChart = ({
             minTime = maxTime - 24 * 60 * 60 * 1000; // Default 24h
         }
 
-        const rawMax = data.length > 0 ? Math.max(...data.map(d => d.count)) : 0;
+        const displayMax = displayData.length > 0 ? Math.max(...displayData.map(d => d.count)) : 0;
 
         return {
             responsive: true,
@@ -212,8 +212,8 @@ const TrendChart = ({
                     beginAtZero: true,
                     grace: minimalStyle ? '12%' : 0,
                     suggestedMax: minimalStyle
-                        ? (rawMax > 0 ? Math.ceil(rawMax * 1.12) : 1)
-                        : undefined,
+                        ? (displayMax > 0 ? Math.ceil(displayMax * 1.12) : 1)
+                        : (displayMax > 0 ? Math.ceil(displayMax * 1.15) : undefined),
                     grid: {
                         color: 'rgba(0,0,0,0.05)',
                         drawBorder: false
@@ -238,7 +238,7 @@ const TrendChart = ({
                 }
             }
         };
-    }, [data, startTime, endTime, minimalStyle, minimalYAxisTickSize]);
+    }, [data, displayData, startTime, endTime, minimalStyle, minimalYAxisTickSize]);
 
     // Calculate total and max for this period
     const stats = useMemo(() => {
