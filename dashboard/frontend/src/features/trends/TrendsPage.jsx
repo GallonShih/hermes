@@ -55,6 +55,7 @@ const TrendsPage = () => {
     const [minimalYAxisTickSize, setMinimalYAxisTickSize] = useState(16);
     const [sortMode, setSortMode] = useState('manual');
     const [topN, setTopN] = useState('all');
+    const [maWindow, setMaWindow] = useState(0);
 
     // Apply default period
     const [defaultApplied, setDefaultApplied] = useState(false);
@@ -243,6 +244,13 @@ const TrendsPage = () => {
             setChartOrder(prev => [...prev, created.id]);
             setIsAddingNew(false);
         }
+    };
+
+    const handleColorChange = async (groupId, newColor) => {
+        const group = groups.find(g => g.id === groupId);
+        if (!group) return;
+        const updated = await updateWordTrendGroup(groupId, { ...group, color: newColor });
+        setGroups(prev => prev.map(g => g.id === updated.id ? updated : g));
     };
 
     const handleDeleteGroup = async (id) => {
@@ -600,6 +608,21 @@ const TrendsPage = () => {
                                             <option value="20">前 20</option>
                                         </select>
                                     </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <label className="text-xs text-gray-500 hidden sm:inline">移動平均:</label>
+                                        <select
+                                            aria-label="移動平均視窗"
+                                            value={maWindow}
+                                            onChange={(e) => setMaWindow(Number(e.target.value))}
+                                            className="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm"
+                                        >
+                                            <option value={0}>關閉</option>
+                                            <option value={3}>3小時</option>
+                                            <option value={6}>6小時</option>
+                                            <option value={12}>12小時</option>
+                                            <option value={24}>24小時</option>
+                                        </select>
+                                    </div>
                                     {loadingTrends && (
                                         <div className="flex items-center gap-2 text-sm text-indigo-600">
                                             <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
@@ -644,6 +667,9 @@ const TrendsPage = () => {
                                                     dragHandleProps={{
                                                         onMouseDown: (e) => e.stopPropagation()
                                                     }}
+                                                    isAdmin={isAdmin}
+                                                    onColorChange={(newColor) => handleColorChange(group.id, newColor)}
+                                                    maWindow={maWindow}
                                                 />
                                             </div>
                                         );

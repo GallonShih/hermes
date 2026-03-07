@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import TrendChart from './TrendChart';
 
@@ -75,6 +76,177 @@ describe('TrendChart', () => {
             />,
         );
         expect(screen.getByText('此時段無符合的留言資料')).toBeInTheDocument();
+    });
+
+    test('y-axis suggestedMax in normal mode is based on display data max with 1.15x headroom', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 20 },
+                    { hour: '2026-02-18T01:00:00Z', count: 5 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T01:00:00Z"
+                minimalStyle={false}
+                maWindow={0}
+            />,
+        );
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        // suggestedMax should be ceil(20 * 1.15) = 23, not left undefined
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(20 * 1.15));
+    });
+
+    test('y-axis suggestedMax uses moving average max when maWindow is active', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 20 },
+                    { hour: '2026-02-18T01:00:00Z', count: 2 },
+                    { hour: '2026-02-18T02:00:00Z', count: 2 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                minimalStyle={false}
+                maWindow={3}
+            />,
+        );
+        // MA values: [20, (20+2)/2=11, (20+2+2)/3≈8], max MA = 20 (first point)
+        // But after full 3-window: [20, 11, 8] → max = 20... hmm
+        // Actually with partial window: [20/1=20, (20+2)/2=11, (20+2+2)/3≈8]
+        // raw max = 20, MA max = 20 — not a good test case for the difference
+        // Use a spike early that averages down:
+        // Let's use the options directly: MA max < raw max when spike is smoothed
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        const maMax = 20; // first MA point is still 20/1
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(maMax * 1.15));
+    });
+
+    test('y-axis suggestedMax uses moving average max (smoothed spike is lower)', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 1 },
+                    { hour: '2026-02-18T01:00:00Z', count: 1 },
+                    { hour: '2026-02-18T02:00:00Z', count: 30 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                minimalStyle={false}
+                maWindow={3}
+            />,
+        );
+        // MA values: [1, (1+1)/2=1, (1+1+30)/3≈10.67] → MA max ≈ 10.67
+        // raw max = 30, MA max ≈ 10.67 → suggestedMax should be based on MA max, not 30
+        const options = lineMock.mock.calls.at(-1)[0].options;
+        const expectedMaMax = (1 + 1 + 30) / 3; // ≈ 10.67
+        expect(options.scales.y.suggestedMax).toBe(Math.ceil(expectedMaMax * 1.15));
+    });
+
+    test('when maWindow is 0 renders original data unchanged', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 3 },
+                    { hour: '2026-02-18T01:00:00Z', count: 6 },
+                    { hour: '2026-02-18T02:00:00Z', count: 9 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                maWindow={0}
+            />,
+        );
+        const dataset = lineMock.mock.calls.at(-1)[0].data.datasets[0];
+        expect(dataset.data[0].y).toBe(3);
+        expect(dataset.data[1].y).toBe(6);
+        expect(dataset.data[2].y).toBe(9);
+    });
+
+    test('when maWindow is 3, replaces data with 3-hour moving average', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[
+                    { hour: '2026-02-18T00:00:00Z', count: 3 },
+                    { hour: '2026-02-18T01:00:00Z', count: 6 },
+                    { hour: '2026-02-18T02:00:00Z', count: 9 },
+                ]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T02:00:00Z"
+                maWindow={3}
+            />,
+        );
+        const dataset = lineMock.mock.calls.at(-1)[0].data.datasets[0];
+        // partial window at start: avg of available points
+        expect(dataset.data[0].y).toBeCloseTo(3);      // (3)/1
+        expect(dataset.data[1].y).toBeCloseTo(4.5);    // (3+6)/2
+        expect(dataset.data[2].y).toBeCloseTo(6);      // (3+6+9)/3
+    });
+
+    test('when maWindow active, pointRadius is 0 regardless of showPoints prop', () => {
+        render(
+            <TrendChart
+                name="A"
+                color="#5470C6"
+                data={[{ hour: '2026-02-18T00:00:00Z', count: 5 }]}
+                startTime="2026-02-18T00:00:00Z"
+                endTime="2026-02-18T00:00:00Z"
+                maWindow={3}
+                showPoints={true}
+            />,
+        );
+        const dataset = lineMock.mock.calls.at(-1)[0].data.datasets[0];
+        expect(dataset.pointRadius).toBe(0);
+    });
+
+    test('does not render edit color button when isAdmin is false', () => {
+        render(<TrendChart name="A" color="#5470C6" data={[]} isAdmin={false} />);
+        expect(screen.queryByLabelText('編輯顏色')).not.toBeInTheDocument();
+    });
+
+    test('renders edit color button when isAdmin is true', () => {
+        render(<TrendChart name="A" color="#5470C6" data={[]} isAdmin={true} onColorChange={vi.fn()} />);
+        expect(screen.getByLabelText('編輯顏色')).toBeInTheDocument();
+    });
+
+    test('clicking edit color button reveals inline color picker', async () => {
+        const user = userEvent.setup();
+        render(<TrendChart name="A" color="#5470C6" data={[]} isAdmin={true} onColorChange={vi.fn()} />);
+        await user.click(screen.getByLabelText('編輯顏色'));
+        expect(screen.getByLabelText('顏色代碼')).toBeInTheDocument();
+        expect(screen.getByLabelText('確認顏色')).toBeInTheDocument();
+        expect(screen.getByLabelText('取消顏色編輯')).toBeInTheDocument();
+    });
+
+    test('confirms color change calls onColorChange and closes picker', async () => {
+        const user = userEvent.setup();
+        const onColorChange = vi.fn();
+        render(<TrendChart name="A" color="#5470C6" data={[]} isAdmin={true} onColorChange={onColorChange} />);
+        await user.click(screen.getByLabelText('編輯顏色'));
+        const input = screen.getByLabelText('顏色代碼');
+        await user.clear(input);
+        await user.type(input, '#ff0000');
+        await user.click(screen.getByLabelText('確認顏色'));
+        expect(onColorChange).toHaveBeenCalledWith('#ff0000');
+        expect(screen.queryByLabelText('顏色代碼')).not.toBeInTheDocument();
+    });
+
+    test('cancels color editing without calling onColorChange', async () => {
+        const user = userEvent.setup();
+        const onColorChange = vi.fn();
+        render(<TrendChart name="A" color="#5470C6" data={[]} isAdmin={true} onColorChange={onColorChange} />);
+        await user.click(screen.getByLabelText('編輯顏色'));
+        await user.click(screen.getByLabelText('取消顏色編輯'));
+        expect(onColorChange).not.toHaveBeenCalled();
+        expect(screen.queryByLabelText('顏色代碼')).not.toBeInTheDocument();
     });
 
     test('renders line chart and stats for data points', () => {

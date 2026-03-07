@@ -10,7 +10,7 @@ import Navigation from '../../components/common/Navigation';
 import { registerChartComponents, hourGridPlugin } from '../../utils/chartSetup';
 import eventMarkerPlugin from '../../utils/eventMarkerPlugin';
 import { fetchViewersStats, fetchCommentsStats } from '../../api/stats';
-import { formatLocalHour } from '../../utils/formatters';
+import { formatLocalHour, formatChartAxisTick } from '../../utils/formatters';
 
 import MessageList from '../messages/MessageList';
 import WordCloudPanel from '../wordcloud/WordCloudPanel';
@@ -354,7 +354,7 @@ function Dashboard() {
                 title: { display: true, text: 'Viewers' },
                 grid: { display: true },
                 beginAtZero: true,
-                ticks: { precision: 0 },
+                ticks: { precision: 0, callback: formatChartAxisTick },
             },
             y2: {
                 type: 'linear',
@@ -363,7 +363,7 @@ function Dashboard() {
                 title: { display: true, text: 'Comments' },
                 grid: { drawOnChartArea: false },
                 beginAtZero: true,
-                ticks: { precision: 0 },
+                ticks: { precision: 0, callback: formatChartAxisTick },
             },
         },
     }), [timeAxisConfig, commentData, viewData, endDate, barFlash, eventMarkers, showMarkerLabels, markerOpacity]);

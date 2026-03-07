@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { PencilIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Line } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -27,6 +28,11 @@ ChartJS.register(
 /**
  * Renders a single line chart for a word trend group
  */
+const presetColors = [
+    '#5470C6', '#91CC75', '#FAC858', '#EE6666', '#73C0DE',
+    '#3BA272', '#FC8452', '#9A60B4', '#EA7CCC', '#48c9b0'
+];
+
 const TrendChart = ({
     name,
     color,
@@ -38,8 +44,13 @@ const TrendChart = ({
     chartHeight = 192,
     minimalStyle = false,
     minimalYAxisTickSize = 16,
-    dragHandleProps
+    dragHandleProps,
+    isAdmin = false,
+    onColorChange,
+    maWindow = 0
 }) => {
+    const [isEditingColor, setIsEditingColor] = useState(false);
+    const [editColor, setEditColor] = useState(color);
     const formatYAxisTick = (value) => {
         const n = Number(value);
         if (!Number.isFinite(n)) return value;
@@ -90,11 +101,21 @@ const TrendChart = ({
         return filled;
     }, [data, startTime, endTime]);
 
+    const displayData = useMemo(() => {
+        if (!maWindow || maWindow <= 0) return filledData;
+        return filledData.map((d, i) => {
+            const start = Math.max(0, i - maWindow + 1);
+            const slice = filledData.slice(start, i + 1);
+            const avg = slice.reduce((sum, p) => sum + p.count, 0) / slice.length;
+            return { ...d, count: avg };
+        });
+    }, [filledData, maWindow]);
+
     const chartData = useMemo(() => ({
         datasets: [
             {
                 label: name,
-                data: filledData.map(d => ({
+                data: displayData.map(d => ({
                     x: new Date(d.hour).getTime(),
                     y: d.count
                 })),
@@ -102,15 +123,15 @@ const TrendChart = ({
                 backgroundColor: 'transparent',
                 tension: 0.3,
                 fill: false,
-                pointRadius: showPoints ? 3 : 0,
-                pointHoverRadius: showPoints ? 6 : 0,
+                pointRadius: (maWindow > 0) ? 0 : (showPoints ? 3 : 0),
+                pointHoverRadius: (maWindow > 0) ? 0 : (showPoints ? 6 : 0),
                 pointBackgroundColor: color,
                 pointBorderColor: color,
                 pointBorderWidth: 1,
                 borderWidth: lineWidth,
             }
         ]
-    }), [name, color, filledData, lineWidth, showPoints]);
+    }), [name, color, displayData, lineWidth, showPoints, maWindow]);
 
     const chartOptions = useMemo(() => {
         // Calculate min/max from data or use provided times
@@ -129,7 +150,7 @@ const TrendChart = ({
             minTime = maxTime - 24 * 60 * 60 * 1000; // Default 24h
         }
 
-        const rawMax = data.length > 0 ? Math.max(...data.map(d => d.count)) : 0;
+        const displayMax = displayData.length > 0 ? Math.max(...displayData.map(d => d.count)) : 0;
 
         return {
             responsive: true,
@@ -191,8 +212,8 @@ const TrendChart = ({
                     beginAtZero: true,
                     grace: minimalStyle ? '12%' : 0,
                     suggestedMax: minimalStyle
-                        ? (rawMax > 0 ? Math.ceil(rawMax * 1.12) : 1)
-                        : undefined,
+                        ? (displayMax > 0 ? Math.ceil(displayMax * 1.12) : 1)
+                        : (displayMax > 0 ? Math.ceil(displayMax * 1.15) : undefined),
                     grid: {
                         color: 'rgba(0,0,0,0.05)',
                         drawBorder: false
@@ -217,7 +238,7 @@ const TrendChart = ({
                 }
             }
         };
-    }, [data, startTime, endTime, minimalStyle, minimalYAxisTickSize]);
+    }, [data, displayData, startTime, endTime, minimalStyle, minimalYAxisTickSize]);
 
     // Calculate total and max for this period
     const stats = useMemo(() => {
@@ -238,9 +259,19 @@ const TrendChart = ({
         return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:00`;
     };
 
+    const handleConfirmColor = () => {
+        onColorChange?.(editColor);
+        setIsEditingColor(false);
+    };
+
+    const handleCancelColor = () => {
+        setEditColor(color);
+        setIsEditingColor(false);
+    };
+
     return (
         <div className="bg-white rounded-xl shadow-md p-5 mb-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                     {/* Drag handle */}
                     <span
@@ -255,13 +286,61 @@ const TrendChart = ({
                         style={{ backgroundColor: color }}
                     />
                     <h3 className="text-lg font-semibold text-gray-800">{name}</h3>
+                    {isAdmin && !isEditingColor && (
+                        <button
+                            aria-label="編輯顏色"
+                            onClick={() => { setEditColor(color); setIsEditingColor(true); }}
+                            className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <PencilIcon className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
                 <div className="flex gap-4 text-sm text-gray-600">
                     <span>總計: <strong className="text-gray-900">{stats.total.toLocaleString()}</strong></span>
                     <span>最高: <strong className="text-gray-900">{stats.max.toLocaleString()}</strong> ({formatMaxHour(stats.maxHour)})</span>
                 </div>
             </div>
-            <div className="min-h-[140px]" style={{ height: `${chartHeight}px` }} data-testid="trend-chart-container">
+            {isEditingColor && (
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    {presetColors.map((c) => (
+                        <button
+                            key={c}
+                            onClick={() => setEditColor(c)}
+                            className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${editColor === c ? 'border-gray-800 scale-110' : 'border-transparent hover:scale-105'}`}
+                            style={{ backgroundColor: c }}
+                        />
+                    ))}
+                    <input
+                        type="text"
+                        aria-label="顏色代碼"
+                        value={editColor}
+                        onChange={(e) => setEditColor(e.target.value)}
+                        className="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                        type="color"
+                        value={editColor}
+                        onChange={(e) => setEditColor(e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border border-gray-300"
+                    />
+                    <button
+                        aria-label="確認顏色"
+                        onClick={handleConfirmColor}
+                        className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <CheckIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                        aria-label="取消顏色編輯"
+                        onClick={handleCancelColor}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    >
+                        <XMarkIcon className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+            <div className={`min-h-[140px] ${isEditingColor ? 'mt-0' : 'mt-2'}`} style={{ height: `${chartHeight}px` }} data-testid="trend-chart-container">
                 {data.length > 0 ? (
                     <Line data={chartData} options={chartOptions} />
                 ) : (

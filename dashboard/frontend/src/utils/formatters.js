@@ -48,6 +48,19 @@ export const formatLocalHour = (date) => {
 };
 
 /**
+ * Format a numeric chart axis tick: numbers >= 1000 shown as Xk (1 decimal max)
+ * @param {number} value
+ * @returns {string|*}
+ */
+export const formatChartAxisTick = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return value;
+    if (Math.abs(n) < 1000) return `${n}`;
+    const kValue = Math.round((n / 1000) * 10) / 10;
+    return `${kValue.toFixed(1).replace(/\.0$/, '')}k`;
+};
+
+/**
  * Format timestamp with specific timezone (Asia/Taipei)
  * @param {string|Date} utcTime 
  * @returns {string}
