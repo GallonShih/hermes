@@ -41,11 +41,26 @@ PK 重複時略過（ON CONFLICT DO NOTHING）。
     使用 Keyset Pagination（游標分頁），以 (time_col, pk_col) 作為游標，
     避免 LIMIT/OFFSET 在時間戳重複時漏資料。
     僅支援單欄 PK 的資料表。
+
+連線管理：
+    - connect_timeout=30s，避免連線 hang 住
+    - 遇到 OperationalError / InterfaceError 時自動重連，最多 5 次
+    - 重連間隔 10s
+
+同步策略（--pk-first）：
+    預設策略（chunked pre-filter）：
+        每個 chunk 從 source 批次拉完整資料，pre-filter 掉 target 已有的 PK。
+        適合重複率低、或 source 為本地的情境。
+
+    PK-first 策略（--pk-first）：
+        每個 chunk 先比對 source / target 的 PK 差集，只拉真正缺少的完整資料。
+        適合重複率高（>90%）、source 為遠端的情境（大幅減少網路傳輸）。
 """
 
 import argparse
 import sys
 import datetime
+import time
 from typing import Optional
 
 try:
@@ -78,6 +93,49 @@ TABLE_CONFLICT_COLUMNS: dict[str, str] = {
 UNSUPPORTED_TABLES = {"stream_stats"}
 
 DEFAULT_TIME_COLUMN = "created_at"
+
+# ── 連線與重連設定 ────────────────────────────────────────────────────────────
+
+CONNECT_TIMEOUT = 30    # seconds – psycopg2 connect timeout
+MAX_RECONNECT   = 5     # max reconnect attempts on connection drop
+RECONNECT_WAIT  = 10    # seconds between reconnect attempts
+
+
+# ── 連線管理 ──────────────────────────────────────────────────────────────────
+
+def connect_source(url: str):
+    """Connect to source DB (read-only) with timeout."""
+    conn = psycopg2.connect(url, connect_timeout=CONNECT_TIMEOUT)
+    conn.set_session(readonly=True, autocommit=True)
+    return conn
+
+
+def connect_target(url: str):
+    """Connect to target DB with timeout."""
+    return psycopg2.connect(url, connect_timeout=CONNECT_TIMEOUT)
+
+
+def with_retry(fn, reconnect_fn, label: str = ""):
+    """
+    Execute fn(), reconnecting and retrying on psycopg2 connection errors.
+    reconnect_fn() is called to refresh the broken connection before each retry.
+    """
+    for attempt in range(1, MAX_RECONNECT + 1):
+        try:
+            return fn()
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            if attempt < MAX_RECONNECT:
+                tag = f" ({label})" if label else ""
+                print(
+                    f"\n  [WARN] Connection lost{tag}: {e}"
+                    f"\n  [RECONNECT] Attempt {attempt}/{MAX_RECONNECT - 1}, "
+                    f"waiting {RECONNECT_WAIT}s..."
+                )
+                time.sleep(RECONNECT_WAIT)
+                reconnect_fn()
+                print("  [RECONNECT] OK")
+            else:
+                raise
 
 
 # ── 資料庫 introspection ──────────────────────────────────────────────────────
@@ -370,6 +428,24 @@ CHUNKED_PREFILTER_TABLES = {"chat_messages"}
 DEFAULT_CHUNK_MINUTES = 15
 
 
+def fetch_source_pks(
+    conn,
+    table_name: str,
+    pk_col: str,
+    time_col: str,
+    start: datetime.datetime,
+    end: datetime.datetime,
+) -> set:
+    """取得 source 在指定時間範圍內的 PK set（供 pk-first 策略使用）。"""
+    with conn.cursor() as cur:
+        cur.execute(
+            f'SELECT "{pk_col}" FROM "{table_name}" '
+            f'WHERE "{time_col}" >= %s AND "{time_col}" < %s',
+            (start, end),
+        )
+        return {r[0] for r in cur.fetchall()}
+
+
 def fetch_target_pks(
     conn,
     table_name: str,
@@ -388,9 +464,173 @@ def fetch_target_pks(
         return {r[0] for r in cur.fetchall()}
 
 
+def fetch_rows_by_pks(
+    conn,
+    table_name: str,
+    columns: list[str],
+    json_cols: dict[str, str],
+    pk_col: str,
+    pks: set,
+    fetch_batch_size: int = 500,
+) -> list[tuple]:
+    """
+    依指定 PK set 取得完整資料列（batched IN query）。
+    當 pks 數量超過 fetch_batch_size 時自動分批，避免 query 過大。
+    """
+    if not pks:
+        return []
+
+    col_list = ", ".join(
+        f'"{c}"::text AS "{c}"' if c in json_cols else f'"{c}"'
+        for c in columns
+    )
+
+    pk_list = list(pks)
+    rows: list[tuple] = []
+    for i in range(0, len(pk_list), fetch_batch_size):
+        batch = pk_list[i:i + fetch_batch_size]
+        placeholders = ", ".join(["%s"] * len(batch))
+        sql = (
+            f'SELECT {col_list} FROM "{table_name}" '
+            f'WHERE "{pk_col}" IN ({placeholders})'
+        )
+        with conn.cursor() as cur:
+            cur.execute(sql, batch)
+            rows.extend(cur.fetchall())
+    return rows
+
+
+def sync_chunked_pk_first(
+    src_conn,
+    tgt_conn,
+    src_url: str,
+    tgt_url: str,
+    table_name: str,
+    columns: list[str],
+    pk_col: str,
+    time_col: str,
+    json_cols: dict[str, str],
+    insert_columns: list[str],
+    insert_indices: list[int],
+    insert_sql: str,
+    row_template: str,
+    start: datetime.datetime,
+    end: datetime.datetime,
+    total: int,
+    chunk_minutes: int,
+    batch_size: int,
+    verbose: bool,
+) -> tuple[int, int, int]:
+    """
+    PK-first chunked 同步策略（適合高重複率 + 遠端 source）。
+
+    每個 chunk 流程：
+      1. 取 target PKs（本地，快）
+      2. 取 source PKs（遠端，輕量，只傳 PK 字串）
+      3. 計算 missing_pks = source_pks - target_pks
+      4. 僅拉 missing_pks 對應的完整資料（WHERE pk IN (...)）
+      5. 插入
+
+    回傳 (total_processed, total_inserted, total_skipped)
+    """
+    src = [src_conn]
+    tgt = [tgt_conn]
+
+    def reconnect_src():
+        try:
+            src[0].close()
+        except Exception:
+            pass
+        src[0] = connect_source(src_url)
+
+    def reconnect_tgt():
+        try:
+            tgt[0].close()
+        except Exception:
+            pass
+        tgt[0] = connect_target(tgt_url)
+
+    chunk_delta = datetime.timedelta(minutes=chunk_minutes)
+    chunk_start = start
+    chunk_num   = 0
+
+    total_processed = 0
+    total_inserted  = 0
+    total_skipped   = 0
+
+    while chunk_start < end:
+        chunk_end = min(chunk_start + chunk_delta, end)
+        chunk_num += 1
+
+        # 1. Target PKs（本地）
+        target_pks = with_retry(
+            lambda cs=chunk_start, ce=chunk_end: fetch_target_pks(
+                tgt[0], table_name, pk_col, time_col, cs, ce
+            ),
+            reconnect_tgt,
+            "target/fetch_pks",
+        )
+
+        # 2. Source PKs（遠端，輕量）
+        source_pks = with_retry(
+            lambda cs=chunk_start, ce=chunk_end: fetch_source_pks(
+                src[0], table_name, pk_col, time_col, cs, ce
+            ),
+            reconnect_src,
+            "source/fetch_pks",
+        )
+
+        # 3. 計算差集
+        missing_pks  = source_pks - target_pks
+        chunk_total  = len(source_pks)
+        chunk_skipped = chunk_total - len(missing_pks)
+
+        total_processed += chunk_total
+        total_skipped   += chunk_skipped
+
+        pct = min(total_processed / total * 100, 100) if total > 0 else 100
+        status = (
+            f"  Chunk {chunk_num:4d} | "
+            f"{chunk_start.strftime('%m-%d %H:%M')} → {chunk_end.strftime('%H:%M')} | "
+            f"source {chunk_total:6,} | skipped {chunk_skipped:6,} | "
+            f"missing {len(missing_pks):4,} | {pct:.1f}%"
+        )
+
+        if verbose:
+            print(status)
+
+        # 4. 只拉 missing PKs 的完整資料
+        inserted = 0
+        if missing_pks:
+            rows = with_retry(
+                lambda mp=missing_pks: fetch_rows_by_pks(
+                    src[0], table_name, columns, json_cols, pk_col, mp, batch_size,
+                ),
+                reconnect_src,
+                "source/fetch_rows",
+            )
+            if rows:
+                insert_rows = [tuple(r[i] for i in insert_indices) for r in rows]
+                inserted = with_retry(
+                    lambda ir=insert_rows: insert_batch(tgt[0], insert_sql, ir, row_template),
+                    reconnect_tgt,
+                    "target/insert",
+                )
+                total_inserted += inserted
+
+        if not verbose or missing_pks:
+            print(f"{status} | inserted {inserted:4,}")
+
+        chunk_start = chunk_end
+
+    return total_processed, total_inserted, total_skipped
+
+
 def sync_chunked_prefilter(
     src_conn,
     tgt_conn,
+    src_url: str,
+    tgt_url: str,
     table_name: str,
     columns: list[str],
     pk_col: str,
@@ -415,9 +655,28 @@ def sync_chunked_prefilter(
     將時間範圍切成 chunk_minutes 的小塊，每塊先從 target 取出已存在的 PK set，
     再從 source 讀取資料時過濾掉已存在的 row，只 INSERT 真正新的資料。
 
+    連線中斷時自動重連（source / target 各自重連）。
+
     回傳 (total_processed, total_inserted, total_prefilter_skipped)
-    注意：total_prefilter_skipped 不含 ON CONFLICT 略過的筆數（理論上應為 0）。
     """
+    # ── 可重連的連線 holder ──
+    src = [src_conn]
+    tgt = [tgt_conn]
+
+    def reconnect_src():
+        try:
+            src[0].close()
+        except Exception:
+            pass
+        src[0] = connect_source(src_url)
+
+    def reconnect_tgt():
+        try:
+            tgt[0].close()
+        except Exception:
+            pass
+        tgt[0] = connect_target(tgt_url)
+
     chunk_delta = datetime.timedelta(minutes=chunk_minutes)
     chunk_start = start
     chunk_num   = 0
@@ -431,8 +690,14 @@ def sync_chunked_prefilter(
         chunk_end = min(chunk_start + chunk_delta, end)
         chunk_num += 1
 
-        # ── 取 target 已存在的 PK set ──
-        target_pks = fetch_target_pks(tgt_conn, table_name, pk_col, time_col, chunk_start, chunk_end)
+        # ── 取 target 已存在的 PK set（支援重連）──
+        target_pks = with_retry(
+            lambda cs=chunk_start, ce=chunk_end: fetch_target_pks(
+                tgt[0], table_name, pk_col, time_col, cs, ce
+            ),
+            reconnect_tgt,
+            "target/fetch_pks",
+        )
         if verbose:
             print(
                 f"\n  [Chunk {chunk_num}] {chunk_start.strftime('%H:%M')} → {chunk_end.strftime('%H:%M')} "
@@ -445,12 +710,19 @@ def sync_chunked_prefilter(
 
         while True:
             batch_num += 1
-            rows = fetch_batch_keyset(
-                src_conn, table_name, columns, json_cols,
-                time_col, pk_col,
-                chunk_start, chunk_end,
-                cursor_time, cursor_pk,
-                batch_size,
+
+            # 拍下游標快照，避免 lambda 捕獲可變變數
+            ct, cp = cursor_time, cursor_pk
+            rows = with_retry(
+                lambda cs=chunk_start, ce=chunk_end, _ct=ct, _cp=cp: fetch_batch_keyset(
+                    src[0], table_name, columns, json_cols,
+                    time_col, pk_col,
+                    cs, ce,
+                    _ct, _cp,
+                    batch_size,
+                ),
+                reconnect_src,
+                "source/fetch_batch",
             )
             if not rows:
                 break
@@ -460,13 +732,17 @@ def sync_chunked_prefilter(
             cursor_time = last_row[time_col_idx]
 
             # pre-filter：排除 target 已有的 PK
-            new_rows   = [r for r in rows if r[pk_col_idx] not in target_pks]
+            new_rows    = [r for r in rows if r[pk_col_idx] not in target_pks]
             prefiltered = len(rows) - len(new_rows)
 
             inserted = 0
             if new_rows:
                 insert_rows = [tuple(r[i] for i in insert_indices) for r in new_rows]
-                inserted    = insert_batch(tgt_conn, insert_sql, insert_rows, row_template)
+                inserted = with_retry(
+                    lambda ir=insert_rows: insert_batch(tgt[0], insert_sql, ir, row_template),
+                    reconnect_tgt,
+                    "target/insert",
+                )
 
             total_processed += len(rows)
             total_inserted  += inserted
@@ -496,6 +772,7 @@ def sync(
     conflict_column: Optional[str],
     batch_size: int,
     chunk_minutes: int,
+    pk_first: bool,
     dry_run: bool,
     verbose: bool,
 ) -> None:
@@ -521,12 +798,11 @@ def sync(
     try:
         # ── 連線 ──
         print("Connecting to source DB...")
-        src_conn = psycopg2.connect(source_url)
-        src_conn.set_session(readonly=True, autocommit=True)
+        src_conn = connect_source(source_url)
 
         if not dry_run:
             print("Connecting to target DB...")
-            tgt_conn = psycopg2.connect(target_url)
+            tgt_conn = connect_target(target_url)
 
         # ── Schema 偵測 ──
         columns      = get_columns(src_conn, table_name)
@@ -600,15 +876,41 @@ def sync(
 
         use_chunked = (table_name in CHUNKED_PREFILTER_TABLES) and (not sync_all)
         if use_chunked:
-            print(f"Strategy    : chunked pre-filter (chunk={chunk_minutes}min)\n")
+            strategy_name = f"pk-first (chunk={chunk_minutes}min)" if pk_first else f"chunked pre-filter (chunk={chunk_minutes}min)"
+            print(f"Strategy    : {strategy_name}\n")
         else:
             print()
 
         # ── 同步策略分支 ──
-        if use_chunked:
+        if use_chunked and pk_first:
+            processed, total_inserted, total_skipped = sync_chunked_pk_first(
+                src_conn=src_conn,
+                tgt_conn=tgt_conn,
+                src_url=source_url,
+                tgt_url=target_url,
+                table_name=table_name,
+                columns=columns,
+                pk_col=pk_col,
+                time_col=time_col,
+                json_cols=json_cols,
+                insert_columns=insert_columns,
+                insert_indices=insert_indices,
+                insert_sql=insert_sql,
+                row_template=row_template,
+                start=start,
+                end=end,
+                total=total,
+                chunk_minutes=chunk_minutes,
+                batch_size=batch_size,
+                verbose=verbose,
+            )
+            skipped_label = "pk-first pre-filtered"
+        elif use_chunked:
             processed, total_inserted, total_skipped = sync_chunked_prefilter(
                 src_conn=src_conn,
                 tgt_conn=tgt_conn,
+                src_url=source_url,
+                tgt_url=target_url,
                 table_name=table_name,
                 columns=columns,
                 pk_col=pk_col,
@@ -629,6 +931,24 @@ def sync(
             )
             skipped_label = "pre-filtered"
         else:
+            # ── 非 chunked：可重連的連線 holder ──
+            src = [src_conn]
+            tgt = [tgt_conn]
+
+            def reconnect_src():
+                try:
+                    src[0].close()
+                except Exception:
+                    pass
+                src[0] = connect_source(source_url)
+
+            def reconnect_tgt():
+                try:
+                    tgt[0].close()
+                except Exception:
+                    pass
+                tgt[0] = connect_target(target_url)
+
             cursor_time    = None
             cursor_pk      = None
             processed      = 0
@@ -638,18 +958,28 @@ def sync(
 
             while True:
                 batch_num += 1
+                ct, cp = cursor_time, cursor_pk
+
                 if sync_all:
-                    rows = fetch_batch_keyset_all(
-                        src_conn, table_name, columns, json_cols,
-                        pk_col, cursor_pk, batch_size,
+                    rows = with_retry(
+                        lambda _cp=cp: fetch_batch_keyset_all(
+                            src[0], table_name, columns, json_cols,
+                            pk_col, _cp, batch_size,
+                        ),
+                        reconnect_src,
+                        "source/fetch_batch",
                     )
                 else:
-                    rows = fetch_batch_keyset(
-                        src_conn, table_name, columns, json_cols,
-                        time_col, pk_col,
-                        start, end,
-                        cursor_time, cursor_pk,
-                        batch_size,
+                    rows = with_retry(
+                        lambda _ct=ct, _cp=cp: fetch_batch_keyset(
+                            src[0], table_name, columns, json_cols,
+                            time_col, pk_col,
+                            start, end,
+                            _ct, _cp,
+                            batch_size,
+                        ),
+                        reconnect_src,
+                        "source/fetch_batch",
                     )
                 if not rows:
                     break
@@ -660,7 +990,11 @@ def sync(
                     cursor_time = last_row[time_col_idx]
 
                 insert_rows = [tuple(r[i] for i in insert_indices) for r in rows]
-                inserted = insert_batch(tgt_conn, insert_sql, insert_rows, row_template)
+                inserted = with_retry(
+                    lambda ir=insert_rows: insert_batch(tgt[0], insert_sql, ir, row_template),
+                    reconnect_tgt,
+                    "target/insert",
+                )
                 skipped  = len(rows) - inserted
                 total_inserted += inserted
                 total_skipped  += skipped
@@ -682,9 +1016,15 @@ def sync(
 
     finally:
         if src_conn:
-            src_conn.close()
+            try:
+                src_conn.close()
+            except Exception:
+                pass
         if tgt_conn:
-            tgt_conn.close()
+            try:
+                tgt_conn.close()
+            except Exception:
+                pass
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -791,6 +1131,15 @@ def main():
 
     # ── 行為控制 ──
     parser.add_argument(
+        "--pk-first",
+        action="store_true",
+        help=(
+            "PK-first sync strategy for high-duplicate scenarios (source is remote). "
+            "Per chunk: fetch source/target PKs, compute diff, fetch only missing full rows. "
+            f"Only applies to: {sorted(CHUNKED_PREFILTER_TABLES)}"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Count rows only, do not write to target DB",
@@ -822,6 +1171,7 @@ def main():
             conflict_column=args.conflict_column,
             batch_size=args.batch_size,
             chunk_minutes=args.chunk_minutes,
+            pk_first=args.pk_first,
             dry_run=args.dry_run,
             verbose=args.verbose,
         )
